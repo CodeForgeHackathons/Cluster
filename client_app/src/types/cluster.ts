@@ -11,6 +11,10 @@ export type Place = {
   rating: number
   title: string
   location: string
+  coordinates: {
+    lat: number
+    lon: number
+  }
   fact: string // "2-мя словами" в MVP (будем рендерить строку как 2 слова)
   cost: number
   description: string
