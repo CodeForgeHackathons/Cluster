@@ -29,3 +29,11 @@ class BusinessRepresentative(Base):
     # Места, которые загрузил/ведёт этот бизнес-представитель
     places = relationship("Place", back_populates="business_rep", lazy="selectin")
 
+    # Заявки этого предпринимателя на модерацию бизнеса
+    moderation_requests = relationship(
+        "BusinessModerationRequest",
+        back_populates="business_rep",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )
+
