@@ -27,6 +27,7 @@ services:
     container_name: cluster_api
     environment:
       DATABASE_URL: postgresql://cluster_user:password@db:5432/clusterdb
+      DEEPSEEK_API_KEY: sk-f3f8e06c7c0f47e686633c6e33776fb6
       API_HOST: 0.0.0.0
       API_PORT: 8000
       DEBUG: "True"
