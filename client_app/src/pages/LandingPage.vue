@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import seaImg from '../assets/kk/пляж.jfif'
 import wineImg from '../assets/kk/винодельня.jfif'
 import kidsImg from '../assets/kk/дети.png'
@@ -275,6 +275,65 @@ const filtersDismissed = ref(false)
 const isBgBlurring = ref(false)
 const clustersVisible = ref(false)
 
+// Временный “бесконечный” список кластеров (MVP-заглушка).
+const PAGE_SIZE = 6
+const visibleCount = ref(PAGE_SIZE)
+const visibleClusters = computed(() => {
+  const baseLen = stubClusters.length
+  if (baseLen === 0) return []
+  return Array.from({ length: visibleCount.value }, (_, i) => stubClusters[i % baseLen]!)
+})
+
+const clustersSentinel = ref<HTMLElement | null>(null)
+const isLoadingMore = ref(false)
+let clustersObserver: IntersectionObserver | null = null
+
+function disconnectClustersObserver(): void {
+  if (clustersObserver) clustersObserver.disconnect()
+  clustersObserver = null
+}
+
+function connectClustersObserver(): void {
+  disconnectClustersObserver()
+
+  if (!clustersSentinel.value) return
+  clustersObserver = new IntersectionObserver(
+    (entries) => {
+      const first = entries[0]
+      if (!first?.isIntersecting) return
+      if (isLoadingMore.value) return
+
+      // Подгружаем следующую “пачку” в момент близости к концу списка.
+      isLoadingMore.value = true
+      visibleCount.value += PAGE_SIZE
+
+      // Небольшая пауза, чтобы не разгонять события.
+      window.setTimeout(() => {
+        isLoadingMore.value = false
+      }, 250)
+    },
+    { root: null, threshold: 0.15 },
+  )
+
+  clustersObserver.observe(clustersSentinel.value)
+}
+
+watch(
+  clustersVisible,
+  async (v) => {
+    if (!v) {
+      disconnectClustersObserver()
+      visibleCount.value = PAGE_SIZE
+      return
+    }
+
+    visibleCount.value = PAGE_SIZE
+    await nextTick()
+    connectClustersObserver()
+  },
+  { immediate: false },
+)
+
 const blurStartDelayMs = 900
 const blurHoldMs = 520
 let bgBlurTimer: number | undefined
@@ -337,6 +396,8 @@ function resetToInitial(): void {
   isBgFading.value = false
   clustersVisible.value = false
   isGalleryOpen.value = false
+  visibleCount.value = PAGE_SIZE
+  disconnectClustersObserver()
 
   currentBgUrl.value = defaultBgUrl
   nextBgUrl.value = defaultBgUrl
@@ -346,6 +407,7 @@ onBeforeUnmount(() => {
   if (bgFadeTimer !== undefined) window.clearTimeout(bgFadeTimer)
   if (bgBlurTimer !== undefined) window.clearTimeout(bgBlurTimer)
   if (bgSwitchTimer !== undefined) window.clearTimeout(bgSwitchTimer)
+  disconnectClustersObserver()
 })
 </script>
 
@@ -416,10 +478,10 @@ onBeforeUnmount(() => {
         aria-label="Кластеры (заглушка)"
       >
         <article
-          v-for="(c, idx) in stubClusters"
-          :key="c.id"
+          v-for="(c, idx) in visibleClusters"
+          :key="c.id + '-' + idx"
           class="landing__clusterCard"
-          :data-idx="idx"
+          :data-idx="idx % PAGE_SIZE"
           role="button"
           tabindex="0"
           :aria-label="`Открыть кластер: ${c.title}`"
@@ -457,6 +519,8 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </article>
+
+        <div ref="clustersSentinel" class="landing__clustersSentinel" aria-hidden="true" />
       </section>
 
       <div
@@ -522,6 +586,25 @@ onBeforeUnmount(() => {
   /* После появления карточек разрешаем скролл (внутри экрана), чтобы без “дёргания” на первом экране. */
   overflow: auto;
   -webkit-overflow-scrolling: touch;
+  height: auto;
+  min-height: 100svh;
+  align-items: stretch;
+}
+
+.landing--clusters .landing__bg {
+  opacity: 0 !important;
+}
+
+.landing--clusters .landing__scrim {
+  background:
+    radial-gradient(1100px 520px at 20% 10%, rgba(0, 194, 255, 0.28), transparent 60%),
+    radial-gradient(900px 520px at 85% 20%, rgba(170, 59, 255, 0.22), transparent 55%),
+    linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0.2) 0%,
+      rgba(0, 0, 0, 0.55) 60%,
+      rgba(0, 0, 0, 0.75) 100%
+    );
 }
 
 .landing__bg {
@@ -620,6 +703,12 @@ onBeforeUnmount(() => {
   gap: 26px;
 }
 
+.landing--clusters .landing__content {
+  height: auto;
+  min-height: 100svh;
+  justify-content: flex-start;
+}
+
 .landing__backBtn {
   position: fixed;
   top: calc(14px + env(safe-area-inset-top));
@@ -694,6 +783,10 @@ onBeforeUnmount(() => {
   gap: 16px;
   padding: 0 8px 6px;
   animation: clustersIn 720ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.landing__clustersSentinel {
+  height: 1px;
 }
 
 .landing__clusterCard {

@@ -369,7 +369,7 @@ function reviewStars(r: Review): string {
   display: grid;
   grid-template-columns: 1.05fr 1fr;
   gap: 16px;
-  border-radius: 26px;
+  border-radius: 22px;
   padding: 14px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.06);

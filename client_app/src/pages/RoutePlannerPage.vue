@@ -695,9 +695,14 @@ const totalCost = computed(() => props.routePlaces.reduce((sum, p) => sum + p.co
   z-index: 60;
   color: rgba(255, 255, 255, 0.98);
   overflow: auto;
-  background: radial-gradient(1200px 700px at 10% 10%, rgba(0, 194, 255, 0.22), transparent 55%),
-    radial-gradient(900px 600px at 95% 20%, rgba(170, 59, 255, 0.16), transparent 50%),
-    rgba(12, 12, 20, 0.92);
+  background:
+    radial-gradient(1200px 600px at 10% 5%, rgba(0, 194, 255, 0.28), transparent 55%),
+    linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0.52) 0%,
+      rgba(0, 0, 0, 0.65) 65%,
+      rgba(0, 0, 0, 0.75) 100%
+    );
 }
 
 .planner__bg {
