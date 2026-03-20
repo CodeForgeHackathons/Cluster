@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, ref } from 'vue'
 import seaImg from '../assets/kk/пляж.jfif'
 import wineImg from '../assets/kk/винодельня.jfif'
 import kidsImg from '../assets/kk/дети.png'
 import viewImg from '../assets/kk/коворкинг.jpg'
 import calmImg from '../assets/kk/природа.jpg'
 import secretImg from '../assets/kk/станица.jfif'
+import type { Cluster } from '../types/cluster'
+
+const emit = defineEmits<{
+  (e: 'openCluster', cluster: Cluster): void
+}>()
 
 type Filter = {
   id: string
@@ -124,6 +129,89 @@ const stubClusters: StubCluster[] = [
   },
 ]
 
+const factPresets: Record<string, [string, string, string]> = {
+  cl1: ['Соль в воздухе', 'Закат рядом', 'Тихая бухта'],
+  cl2: ['Тишина рядом', 'Чай и зелень', 'Туман красиво'],
+  cl3: ['Фокус и вид', 'Дела в тишине', 'Заметки на свежем'],
+  cl4: ['Вино в бокале', 'Ремесло вкусно', 'Ветер в листьях'],
+  cl5: ['Игра и вкус', 'Творчество рядом', 'Шаги в радость'],
+  cl6: ['Тайные мастерские', 'Дела руками', 'Фото без толпы'],
+}
+
+const clusterById = new Map<string, Cluster>(
+  stubClusters.map((c) => {
+    const [fact1, fact2, fact3] = factPresets[c.id] ?? ['Впечатления', 'Вдохновение', 'Путешествие']
+
+    const baseDescription = `Сценарий “${c.title}”: локальные смыслы, понятная логистика и ощущение “я нашёл(ла) своё место”.`
+
+    const places = [
+      {
+        id: `${c.id}-p1`,
+        photo: c.image,
+        rating: c.rating,
+        title: c.title,
+        location: c.meta,
+        fact: fact1,
+        cost: c.price,
+        description: baseDescription,
+        reviewsLabel: c.reviews,
+        reviews: [
+          { id: `${c.id}-r1`, author: 'Анна', rating: Math.min(5, c.rating), text: 'Визит ощущается как “дистанционное” предвкушение: сразу хочется ехать.' },
+          { id: `${c.id}-r2`, author: 'Илья', rating: Math.max(4.5, c.rating - 0.2), text: 'Маршрут из деталей — всё сходится, без лишней суеты.' },
+          { id: `${c.id}-r3`, author: 'Мария', rating: Math.max(4.4, c.rating - 0.4), text: 'Понравился темп и атмосфера. Вернёмся в сезон.' },
+        ],
+      },
+      {
+        id: `${c.id}-p2`,
+        photo: c.image,
+        rating: Math.max(4.5, c.rating - 0.2),
+        title: `${c.title} · мягкий маршрут`,
+        location: c.meta,
+        fact: fact2,
+        cost: Math.round(c.price * 0.92),
+        description: `${baseDescription} В этом варианте — больше “медленных” остановок и воздуха.`,
+        reviewsLabel: c.reviews,
+        reviews: [
+          { id: `${c.id}-r4`, author: 'Олег', rating: 4.7, text: 'Хорошо заходит тем, кто хочет спокойную поездку.' },
+          { id: `${c.id}-r5`, author: 'Светлана', rating: 4.8, text: 'Немного тише, но по ощущениям даже лучше.' },
+          { id: `${c.id}-r6`, author: 'Дмитрий', rating: 4.6, text: 'Собрали маршрут и не пожалели — всё рядом.' },
+        ],
+      },
+      {
+        id: `${c.id}-p3`,
+        photo: c.image,
+        rating: Math.max(4.5, c.rating - 0.1),
+        title: `${c.title} · видовые точки`,
+        location: c.meta,
+        fact: fact3,
+        cost: Math.round(c.price * 1.04),
+        description: `${baseDescription} Добавили “вау”-кадры и небольшие видовые паузы.`,
+        reviewsLabel: c.reviews,
+        reviews: [
+          { id: `${c.id}-r7`, author: 'Вера', rating: 4.9, text: 'Очень красиво на фото и вживую — прям вау!' },
+          { id: `${c.id}-r8`, author: 'Кирилл', rating: 4.7, text: 'Сильная концепция: хочется продолжения.' },
+          { id: `${c.id}-r9`, author: 'Ирина', rating: 4.8, text: 'Легко представить поездку заранее. Отличная витрина.' },
+        ],
+      },
+    ]
+
+    const cluster: Cluster = {
+      id: c.id,
+      coverImage: c.image,
+      title: c.title,
+      places,
+    }
+
+    return [c.id, cluster] as const
+  }),
+)
+
+function openClusterById(id: string): void {
+  const cluster = clusterById.get(id)
+  if (!cluster) return
+  emit('openCluster', cluster)
+}
+
 const defaultBgUrl = filters[0]!.bgImage
 const currentBgUrl = ref<string>(defaultBgUrl)
 const nextBgUrl = ref<string>(defaultBgUrl)
@@ -143,7 +231,6 @@ let bgSwitchTimer: number | undefined
 let bgRequestId = 0
 
 function blurAndSwapBg(url: string): void {
-  if (url === currentBgUrl.value) return
   const reqId = ++bgRequestId
 
   nextBgUrl.value = url
@@ -202,6 +289,12 @@ function resetToInitial(): void {
   currentBgUrl.value = defaultBgUrl
   nextBgUrl.value = defaultBgUrl
 }
+
+onBeforeUnmount(() => {
+  if (bgFadeTimer !== undefined) window.clearTimeout(bgFadeTimer)
+  if (bgBlurTimer !== undefined) window.clearTimeout(bgBlurTimer)
+  if (bgSwitchTimer !== undefined) window.clearTimeout(bgSwitchTimer)
+})
 </script>
 
 <template>
@@ -274,6 +367,12 @@ function resetToInitial(): void {
           :key="c.id"
           class="landing__clusterCard"
           :data-idx="idx"
+          role="button"
+          tabindex="0"
+          :aria-label="`Открыть кластер: ${c.title}`"
+          @click="openClusterById(c.id)"
+          @keydown.enter.prevent="openClusterById(c.id)"
+          @keydown.space.prevent="openClusterById(c.id)"
         >
           <div class="landing__clusterImgWrap">
             <img
@@ -495,6 +594,20 @@ function resetToInitial(): void {
   transform: translateY(10px);
   opacity: 0;
   animation: clusterCardIn 720ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  cursor: pointer;
+}
+
+.landing__clusterCard:hover {
+  transform: translateY(0) scale(1.02);
+  border-color: rgba(0, 194, 255, 0.65);
+  box-shadow:
+    0 30px 110px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.landing__clusterCard:focus-visible {
+  outline: 2px solid rgba(0, 194, 255, 0.9);
+  outline-offset: 4px;
 }
 
 .landing__clusterImgWrap {

@@ -1,7 +1,270 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue'
 import LandingPage from './pages/LandingPage.vue'
+import ClusterPage from './pages/ClusterPage.vue'
+import type { Cluster, Place } from './types/cluster'
+
+type Mode = 'landing' | 'cluster'
+
+const mode = ref<Mode>('landing')
+const selectedCluster = ref<Cluster | null>(null)
+
+// "Маршрут" хранится в памяти: без запросов в бэкенд.
+const routePlaces = ref<Place[]>([])
+const routePlaceIds = computed(() => new Set(routePlaces.value.map((p) => p.id)))
+
+const isRouteOpen = ref(false)
+
+function openCluster(cluster: Cluster): void {
+  selectedCluster.value = cluster
+  mode.value = 'cluster'
+  isRouteOpen.value = false
+}
+
+function backToLanding(): void {
+  mode.value = 'landing'
+  selectedCluster.value = null
+}
+
+function togglePlaceInRoute(place: Place): void {
+  const idx = routePlaces.value.findIndex((p) => p.id === place.id)
+  if (idx >= 0) routePlaces.value.splice(idx, 1)
+  else routePlaces.value.push(place)
+}
 </script>
 
 <template>
-  <LandingPage />
+  <LandingPage v-if="mode === 'landing'" @openCluster="openCluster" />
+
+  <ClusterPage
+    v-if="mode === 'cluster' && selectedCluster"
+    :cluster="selectedCluster"
+    :route-place-ids="routePlaceIds"
+    @back="backToLanding"
+    @toggleRoutePlace="togglePlaceInRoute"
+  />
+
+  <button
+    v-if="routePlaces.length > 0"
+    type="button"
+    class="routeFab"
+    :aria-label="`Открыть маршрут. В нём ${routePlaces.length} мест`"
+    @click="isRouteOpen = !isRouteOpen"
+  >
+    <span class="routeFab__icon" aria-hidden="true">⟶</span>
+    <span class="routeFab__label">Маршрут: {{ routePlaces.length }}</span>
+  </button>
+
+  <transition name="routeDrawer">
+    <div v-if="isRouteOpen" class="routeDrawerOverlay" role="dialog" aria-modal="true">
+      <div class="routeDrawer">
+        <div class="routeDrawer__header">
+          <div class="routeDrawer__title">Ваш маршрут</div>
+          <button type="button" class="routeDrawer__close" @click="isRouteOpen = false">
+            ✕
+          </button>
+        </div>
+
+        <div class="routeDrawer__list" role="list">
+          <div
+            v-for="p in routePlaces"
+            :key="p.id"
+            class="routeDrawerItem"
+            role="listitem"
+          >
+            <img :src="p.photo" class="routeDrawerItem__img" :alt="p.title" />
+            <div class="routeDrawerItem__body">
+              <div class="routeDrawerItem__top">
+                <div class="routeDrawerItem__title">{{ p.title }}</div>
+                <div class="routeDrawerItem__cost">{{ p.cost }} ₽</div>
+              </div>
+              <div class="routeDrawerItem__loc">{{ p.location }}</div>
+              <div class="routeDrawerItem__actions">
+                <button
+                  type="button"
+                  class="routeDrawerItem__btn"
+                  @click="togglePlaceInRoute(p)"
+                >
+                  Убрать
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="routeDrawer__footer">
+          <div class="routeDrawer__hint">MVP: маршрут не отправляется, только собирается.</div>
+        </div>
+      </div>
+    </div>
+  </transition>
 </template>
+
+<style scoped>
+.routeFab {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(20, 20, 30, 0.55);
+  backdrop-filter: blur(14px);
+  color: rgba(255, 255, 255, 0.98);
+  cursor: pointer;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.35);
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+.routeFab:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 194, 255, 0.65);
+  background: rgba(20, 20, 30, 0.7);
+}
+
+.routeFab__icon {
+  font-size: 16px;
+}
+
+.routeFab__label {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.routeDrawerOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.routeDrawer {
+  width: min(720px, 100%);
+  max-height: 78vh;
+  border-radius: 22px 22px 0 0;
+  background: rgba(25, 25, 35, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: 0 -30px 120px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.routeDrawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.routeDrawer__title {
+  color: rgba(255, 255, 255, 0.98);
+  font-weight: 900;
+  letter-spacing: 0.2px;
+}
+
+.routeDrawer__close {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.routeDrawer__list {
+  padding: 10px 12px 0;
+  overflow: auto;
+  max-height: 58vh;
+}
+
+.routeDrawerItem {
+  display: flex;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  margin-bottom: 10px;
+}
+
+.routeDrawerItem__img {
+  width: 92px;
+  height: 62px;
+  object-fit: cover;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.routeDrawerItem__body {
+  flex: 1;
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.98);
+}
+
+.routeDrawerItem__top {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.routeDrawerItem__title {
+  font-weight: 900;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.routeDrawerItem__cost {
+  font-weight: 900;
+}
+
+.routeDrawerItem__loc {
+  opacity: 0.9;
+  font-size: 13px;
+  margin-top: 3px;
+}
+
+.routeDrawerItem__actions {
+  margin-top: 8px;
+}
+
+.routeDrawerItem__btn {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.routeDrawer__footer {
+  padding: 12px 16px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.routeDrawer__hint {
+  opacity: 0.85;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 13px;
+}
+
+.routeDrawer-enter-active,
+.routeDrawer-leave-active {
+  transition: opacity 180ms ease;
+}
+
+.routeDrawer-enter-from,
+.routeDrawer-leave-to {
+  opacity: 0;
+}
+</style>
