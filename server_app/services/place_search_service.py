@@ -105,6 +105,20 @@ def search_places_by_embedding(
     return [p for p, _ in scored[:limit]]
 
 
+def get_places_fallback(db: Session, limit: int = 12) -> List[Place]:
+    """
+    Fallback: возвращает последние места из БД без семантического поиска.
+    Используется, когда нет DEEPSEEK_API_KEY или embeddings не посчитаны.
+    """
+    stmt = (
+        select(Place)
+        .order_by(Place.created_at.desc())
+        .options(joinedload(Place.images), selectinload(Place.reviews))
+        .limit(limit)
+    )
+    return list(db.execute(stmt).unique().scalars().all())
+
+
 def ensure_place_embedding(db: Session, place: Place) -> bool:
     """
     Вычисляет и сохраняет эмбеддинг для места, если его ещё нет.

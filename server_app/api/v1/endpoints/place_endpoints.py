@@ -1,4 +1,3 @@
-@ -0,0 +1,168 @@
 from __future__ import annotations
 
 from typing import List, Optional
@@ -158,7 +157,7 @@ def list_places(
     if place_type:
         stmt = stmt.where(func.lower(Place.place_type) == place_type.strip().lower())
 
-    places = db.execute(stmt).scalars().all()
+    places = db.execute(stmt).unique().scalars().all()
 
     return [
         PlaceResponse(

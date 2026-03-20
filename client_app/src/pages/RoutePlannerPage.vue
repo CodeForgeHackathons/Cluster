@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { getApiBase } from '../api/client'
 import type { Place } from '../types/cluster'
 
 type TravelerType = 'family' | 'elderly' | 'digital' | 'gastro' | 'active' | 'eco'
@@ -412,7 +413,7 @@ async function generate(): Promise<void> {
   }
   const placeById = new Map(places.map((p) => [p.id, p]))
   try {
-    const base = typeof window !== 'undefined' && window.location?.port === '5173' ? '/api' : 'http://localhost:8000'
+    const base = getApiBase()
     const res = await fetch(`${base}/itinerary/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

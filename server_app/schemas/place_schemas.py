@@ -80,9 +80,9 @@ class PlaceDetailResponse(PlaceResponse):
 
 
 def _validate_two_words(value: Optional[str]) -> Optional[str]:
-    if value is None:
+    if value is None or not str(value).strip():
         return value
-    words = [w for w in value.strip().split(" ") if w]
-    if len(words) != 2:
-        raise ValueError("Интересный факт должен содержать ровно 2 слова")
+    words = [w for w in str(value).strip().split(" ") if w]
+    if len(words) < 1 or len(words) > 10:
+        raise ValueError("Интересный факт: от 1 до 10 слов")
     return value

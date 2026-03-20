@@ -19,6 +19,7 @@ from schemas.itinerary_schemas import (
 )
 from services.place_search_service import (
     _query_text_from_preferences,
+    get_places_fallback,
     search_places_by_embedding,
 )
 from sqlalchemy.orm import Session
@@ -64,7 +65,8 @@ def _place_to_candidate(place) -> CandidateInput:
     price = float(place.price) if place.price is not None else 0.0
     desc = place.description or place.description_ai or ""
     return CandidateInput(
-        id=f"p{place.place_id}",
+        # id нужен для восстановления clusterId: в генераторе мы делаем split по '-'
+        id=f"{place.place_type or 'general'}-p{place.place_id}",
         clusterId=place.place_type or "general",
         title=place.name or "",
         location=place.location or "",
@@ -210,13 +212,15 @@ def generate_itinerary(
             weather_labels=[w.weatherLabel for w in (payload.weatherByDay or []) if w.weatherLabel],
         )
         db_places = search_places_by_embedding(db, query_text=query_text, limit=12)
+        if not db_places:
+            db_places = get_places_fallback(db, limit=12)
         candidates = [_place_to_candidate(p) for p in db_places]
         db_place_by_id = {c.id: p for c, p in zip(candidates, db_places)}
 
     if not candidates:
         raise HTTPException(
             status_code=400,
-            detail="Нет кандидатов. Добавьте места с фронта или заполните БД и выставьте DEEPSEEK_API_KEY для семантического поиска.",
+            detail="Нет мест в БД. Запустите seed: docker exec cluster_api python scripts/seed_demo_places.py",
         )
 
     duration = payload.durationDays or 3

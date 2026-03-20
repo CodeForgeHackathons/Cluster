@@ -47,6 +47,8 @@ services:
       context: ./client_app
       dockerfile: Dockerfile
     container_name: cluster_client
+    environment:
+      VITE_PROXY_TARGET: http://server:8000
     ports:
       - "5173:5173"
     depends_on:

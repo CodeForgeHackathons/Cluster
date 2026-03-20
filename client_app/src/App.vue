@@ -19,7 +19,6 @@ const isPlannerOpen = ref(false)
 const autoPlannerOpenedOnce = ref(false)
 
 function openPlanner(): void {
-  if (routePlaces.value.length === 0) return
   isPlannerOpen.value = true
   autoPlannerOpenedOnce.value = true
   mode.value = 'plan'
@@ -71,7 +70,7 @@ function togglePlaceInRoute(place: Place): void {
 </script>
 
 <template>
-  <LandingPage v-if="mode === 'landing'" @openCluster="openCluster" />
+  <LandingPage v-if="mode === 'landing'" @openCluster="openCluster" @openPlanner="openPlanner" />
 
   <ClusterPage
     v-if="mode === 'cluster' && selectedCluster"
@@ -82,14 +81,14 @@ function togglePlaceInRoute(place: Place): void {
   />
 
   <button
-    v-if="routePlaces.length > 0 && mode !== 'plan'"
+    v-if="mode !== 'plan'"
     type="button"
     class="routeFab"
-    :aria-label="`Открыть маршрут. В нём ${routePlaces.length} мест`"
-    @click="isRouteOpen = !isRouteOpen"
+    :aria-label="routePlaces.length > 0 ? `Открыть маршрут. В нём ${routePlaces.length} мест` : 'Подобрать маршрут'"
+    @click="routePlaces.length > 0 ? (isRouteOpen = !isRouteOpen) : openPlanner()"
   >
     <span class="routeFab__icon" aria-hidden="true">⟶</span>
-    <span class="routeFab__label">Маршрут: {{ routePlaces.length }}</span>
+    <span class="routeFab__label">{{ routePlaces.length > 0 ? `Маршрут: ${routePlaces.length}` : 'Подобрать маршрут' }}</span>
   </button>
 
   <transition name="routeDrawer">
@@ -135,7 +134,6 @@ function togglePlaceInRoute(place: Place): void {
             <button
               type="button"
               class="routeDrawer__planBtn"
-              :disabled="routePlaces.length === 0"
               @click="openPlanner"
             >
               Собрать маршрут

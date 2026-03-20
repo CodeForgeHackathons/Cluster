@@ -10,6 +10,7 @@ import type { Cluster } from '../types/cluster'
 
 const emit = defineEmits<{
   (e: 'openCluster', cluster: Cluster): void
+  (e: 'openPlanner'): void
 }>()
 
 type Filter = {
@@ -431,15 +432,23 @@ onBeforeUnmount(() => {
     <div class="landing__scrim" />
 
     <div class="landing__content">
-      <button
-        v-if="clustersVisible"
-        type="button"
-        class="landing__backBtn"
-        aria-label="Назад"
-        @click="resetToInitial"
-      >
-        <span class="landing__backIcon" aria-hidden="true">←</span>
-      </button>
+      <div v-if="clustersVisible" class="landing__topBar">
+        <button
+          type="button"
+          class="landing__backBtn"
+          aria-label="Назад"
+          @click="resetToInitial"
+        >
+          <span class="landing__backIcon" aria-hidden="true">←</span>
+        </button>
+        <button
+          type="button"
+          class="landing__planBtn"
+          @click="emit('openPlanner')"
+        >
+          Подобрать маршрут по ИИ
+        </button>
+      </div>
 
       <h1
         v-if="!clustersVisible"
@@ -448,6 +457,14 @@ onBeforeUnmount(() => {
       >
         Что ты хочешь почувствовать?
       </h1>
+      <button
+        v-if="!clustersVisible && !filtersDismissed"
+        type="button"
+        class="landing__planCta"
+        @click="emit('openPlanner')"
+      >
+        Подобрать маршрут по предпочтениям →
+      </button>
 
       <section
         v-if="!clustersVisible"
@@ -709,10 +726,20 @@ onBeforeUnmount(() => {
   justify-content: flex-start;
 }
 
-.landing__backBtn {
+.landing__topBar {
   position: fixed;
   top: calc(14px + env(safe-area-inset-top));
   left: calc(14px + env(safe-area-inset-left));
+  right: calc(14px + env(safe-area-inset-right));
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.landing__backBtn {
+  position: static;
   z-index: 3;
   display: inline-flex;
   align-items: center;
@@ -748,6 +775,40 @@ onBeforeUnmount(() => {
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.2px;
+}
+
+.landing__planBtn {
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 194, 255, 0.5);
+  background: rgba(0, 194, 255, 0.12);
+  color: rgba(255, 255, 255, 0.98);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+.landing__planBtn:hover {
+  background: rgba(0, 194, 255, 0.2);
+  border-color: rgba(0, 194, 255, 0.75);
+}
+
+.landing__planCta {
+  display: block;
+  margin: 12px auto 0;
+  padding: 10px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.95);
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+.landing__planCta:hover {
+  background: rgba(0, 194, 255, 0.15);
+  border-color: rgba(0, 194, 255, 0.5);
 }
 
 .landing__backBtn[aria-label='Назад'] {
