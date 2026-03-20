@@ -5,8 +5,10 @@ from decimal import Decimal
 from typing import List, Optional
 
 from sqlalchemy import (
+    ARRAY,
     Column,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     Numeric,
@@ -40,6 +42,9 @@ class Place(Base):
     description: Mapped[Optional[str]] = Column(Text, nullable=True)
 
     price: Mapped[Optional[Decimal]] = Column(Numeric(10, 2), nullable=True)
+
+    # Эмбеддинг для семантического поиска (DeepSeek, 1536 dims)
+    embedding: Mapped[Optional[list]] = Column(ARRAY(Float), nullable=True)
 
     created_at: Mapped[datetime] = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = Column(DateTime, server_default=func.now(), onupdate=func.now())

@@ -59,6 +59,7 @@ type DayPlan = {
     place: Place
     slot: DaySlot
     why: string
+    logisticsNotes?: string
   }>
 }
 
@@ -78,6 +79,8 @@ type WeatherDay = {
 const weatherLoading = ref(false)
 const weatherByDay = ref<WeatherDay[]>([])
 const weatherError = ref<string>('')
+const apiError = ref<string>('')
+const generateLoading = ref(false)
 
 function weatherLabelFromCode(code: number): { label: string; isRainy: boolean } {
   // Open-Meteo weather codes:
@@ -234,6 +237,65 @@ function clusterKey(place: Place): string {
   return place.id.split('-')[0] ?? ''
 }
 
+const clusterSeasonTags: Record<string, string[]> = {
+  cl1: ['summer'],
+  cl2: ['spring', 'autumn'],
+  cl3: ['spring', 'summer', 'autumn', 'winter'],
+  cl4: ['autumn', 'spring'],
+  cl5: ['spring', 'summer'],
+  cl6: ['autumn', 'winter'],
+}
+const clusterTypeTags: Record<string, string[]> = {
+  cl1: ['family', 'elderly-friendly', 'relaxed', 'outdoor'],
+  cl2: ['family', 'eco', 'relaxed', 'nature'],
+  cl3: ['digital', 'indoor-safe', 'view'],
+  cl4: ['gastro', 'wine', 'family', 'indoor-safe'],
+  cl5: ['family', 'kids-friendly', 'active'],
+  cl6: ['eco', 'relaxed', 'craft'],
+}
+
+function buildCandidatesFromPlaces(places: Place[]) {
+  return places.map((p) => {
+    const key = clusterKey(p)
+    const title = p.title.toLowerCase()
+    const seasonsBest = clusterSeasonTags[key] ?? []
+    let typeTags = [...(clusterTypeTags[key] ?? [])]
+    if (title.includes('дет') || title.includes('семей')) typeTags.push('family', 'kids-friendly')
+    if (title.includes('тих') || title.includes('неспеш')) typeTags.push('elderly-friendly')
+    if (title.includes('вино') || title.includes('дегуст') || title.includes('вкус')) typeTags.push('gastro')
+    if (title.includes('природ') || title.includes('озер') || title.includes('троп')) typeTags.push('eco')
+    const months = seasonsBest.flatMap((s) => {
+      if (s === 'summer') return ['06', '07', '08']
+      if (s === 'winter') return ['12', '01', '02']
+      if (s === 'spring') return ['03', '04', '05']
+      if (s === 'autumn') return ['09', '10', '11']
+      return []
+    })
+    return {
+      id: p.id,
+      clusterId: key || (p.id.split('-')[0] ?? p.id),
+      title: p.title,
+      location: p.location,
+      coordinates: { lat: p.coordinates.lat, lon: p.coordinates.lon },
+      rating: p.rating,
+      cost: p.cost,
+      fact: p.fact,
+      description: p.description,
+      seasonsBest,
+      availableMonths: [...new Set(months)],
+      typeTags: [...new Set(typeTags)],
+      indoorOptions: ['веранды/кафе рядом', 'дегустации в плохую погоду'],
+      outdoorOptions: ['прогулки', 'набережная', 'фото-остановки'],
+      suitabilityFlags: {
+        kidsFriendly: typeTags.some((t) => t.includes('kids') || t.includes('family')),
+        elderlyFriendly: typeTags.some((t) => t.includes('elderly')),
+        wifi: typeTags.some((t) => t.includes('digital')),
+        accessibilityNotes: 'без сложных подъёмов',
+      },
+    }
+  })
+}
+
 // MVP: “ИИ-логика” локальная, без бэка. Она учитывает сезон и тип туриста.
 function scorePlace(place: Place): number {
   const t = travelerType.value
@@ -326,10 +388,89 @@ function whyForPlace(place: Place, dayIndex: number): string {
 
 async function generate(): Promise<void> {
   generated.value = true
+  apiError.value = ''
+  generateLoading.value = true
+
   await fetchWeather()
   const places = props.routePlaces ?? []
+  const candidates = places.length > 0 ? buildCandidatesFromPlaces(places) : []
+  const payload = {
+    requestType: 'itinerary_generation',
+    travelerType: travelerType.value,
+    startDate: startDate.value,
+    durationDays: 3,
+    weatherByDay: weatherByDay.value.map((w) => ({
+      weatherCode: w.weatherCode,
+      minTemp: w.minTemp,
+      maxTemp: w.maxTemp,
+      precipitationSum: w.precipitationSum,
+      isRainy: w.isRainy,
+      weatherLabel: w.label,
+    })),
+    candidates,
+    outputContract: { daysCount: 3, daySlots: ['Утро', 'День', 'Вечер'], maxPlacesPerDay: 3, language: 'ru' },
+  }
+  const placeById = new Map(places.map((p) => [p.id, p]))
+  try {
+    const base = typeof window !== 'undefined' && window.location?.port === '5173' ? '/api' : 'http://localhost:8000'
+    const res = await fetch(`${base}/itinerary/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`)
+    const data = (await res.json()) as {
+      itineraryDays: Array<{
+        dayIndex: number
+        steps: Array<{
+          slot: string
+          placeId: string
+          why: string
+          logisticsNotes?: string
+          placeInfo?: { id: string; title: string; location: string; cost: number; rating: number; fact: string; description: string; photoUrl: string }
+        }>
+      }>
+      overallWhy: string
+    }
+    days.value = data.itineraryDays.map((d) => ({
+      dayIndex: d.dayIndex,
+      places: d.steps
+        .map((s) => {
+          let place = placeById.get(s.placeId)
+          if (!place && s.placeInfo) {
+            place = {
+              id: s.placeInfo.id,
+              photo: s.placeInfo.photoUrl || '',
+              rating: s.placeInfo.rating,
+              title: s.placeInfo.title,
+              location: s.placeInfo.location,
+              coordinates: { lat: 45, lon: 38 },
+              fact: s.placeInfo.fact,
+              cost: s.placeInfo.cost,
+              description: s.placeInfo.description,
+              reviewsLabel: '',
+              reviews: [],
+            } as Place
+          }
+          if (!place) return null
+          return { place, slot: s.slot as DaySlot, why: s.why, logisticsNotes: s.logisticsNotes }
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null),
+    }))
+    overallWhy.value = data.overallWhy ?? ''
+  } catch (e) {
+    apiError.value = e instanceof Error ? e.message : 'Ошибка при генерации. Бэкенд запущен на порту 8000?'
+    days.value = []
+    overallWhy.value = ''
+  } finally {
+    generateLoading.value = false
+  }
+  vauSelectedIndex.value = 0
+}
+// (локальный fallback удалён — генерация через API)
+function _unusedLocalFallback_REMOVED() {
+  const places = props.routePlaces ?? []
   const sorted = [...places].sort((a, b) => scorePlace(b) - scorePlace(a))
-
   const dayBuckets: DayPlan[] = [
     { dayIndex: 0, places: [] },
     { dayIndex: 1, places: [] },
@@ -534,13 +675,13 @@ const totalCost = computed(() => props.routePlaces.reduce((sum, p) => sum + p.co
           <button
             type="button"
             class="planner__generateBtn"
-            :disabled="!hasPlaces"
+            :disabled="generateLoading"
             @click="generate"
           >
-            Сгенерировать маршрут (MVP ИИ)
+            {{ generateLoading ? 'Генерация...' : 'Сгенерировать маршрут' }}
           </button>
           <div v-if="!hasPlaces" class="planner__actionsHint">
-            Добавьте хотя бы одно место в маршрут на экране кластера.
+            Без выбранных мест — поиск в БД по предпочтениям (DeepSeek embeddings).
           </div>
         </div>
       </div>
@@ -577,6 +718,7 @@ const totalCost = computed(() => props.routePlaces.reduce((sum, p) => sum + p.co
           <div v-else-if="!weatherByDay.length" class="plannerWeather__status">
             Нажмите “Сгенерировать маршрут”, чтобы подгрузить погоду.
           </div>
+          <div v-if="apiError" class="plannerWeather__status plannerWeather__status--error">{{ apiError }}</div>
         </section>
 
         <section v-if="vauItems.length" class="plannerVau" aria-label="Дистанционный визит (вау)">
@@ -1167,6 +1309,9 @@ const totalCost = computed(() => props.routePlaces.reduce((sum, p) => sum + p.co
 .plannerWeather__status {
   margin-top: 10px;
   opacity: 0.9;
+}
+.plannerWeather__status--error {
+  color: #ff9a9a;
   font-size: 13px;
 }
 
