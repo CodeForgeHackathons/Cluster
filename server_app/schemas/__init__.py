@@ -5,11 +5,24 @@ from .tourist_schemas import (
     TouristUserResponse,
     TouristUserDetail,
 )
+from .place_schemas import (
+    PlaceBase,
+    PlaceCreate,
+    PlaceUpdate,
+    PlaceResponse,
+    PlaceDetailResponse,
+    PlaceReviewResponse,
+)
 
 __all__ = [
     "TouristUserBase",
     "TouristUserCreate",
     "TouristUserUpdate",
     "TouristUserResponse",
-    "TouristUserDetail",
+    "TouristUserDetail","PlaceBase",
+    "PlaceCreate",
+    "PlaceUpdate",
+    "PlaceResponse",
+    "PlaceDetailResponse",
+    "PlaceReviewResponse",
 ]

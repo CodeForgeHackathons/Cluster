@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from core.config import settings
 from api.v1.api import api_router
 from database.session import Base, engine
+import models
 
 app = FastAPI()
 Base.metadata.create_all(bind=engine)

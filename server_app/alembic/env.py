@@ -8,6 +8,9 @@ from alembic import context
 from core.config import settings
 from database.session import Base
 
+# Ensure model modules are imported so Alembic sees the tables via Base.metadata
+import models  # noqa: F401
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config

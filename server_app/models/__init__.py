@@ -1,3 +1,5 @@
 from .tourist_model import TouristUser
 
-__all__ = ["TouristUser"]
+from .place_model import Place, PlaceImage, PlaceReview
+
+__all__ = ["TouristUser", "Place", "PlaceImage", "PlaceReview"]
