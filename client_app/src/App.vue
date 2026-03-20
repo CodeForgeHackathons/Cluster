@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import LandingPage from './pages/LandingPage.vue'
 import ClusterPage from './pages/ClusterPage.vue'
 import RoutePlannerPage from './pages/RoutePlannerPage.vue'
@@ -16,10 +16,12 @@ const routePlaceIds = computed(() => new Set(routePlaces.value.map((p) => p.id))
 
 const isRouteOpen = ref(false)
 const isPlannerOpen = ref(false)
+const autoPlannerOpenedOnce = ref(false)
 
 function openPlanner(): void {
   if (routePlaces.value.length === 0) return
   isPlannerOpen.value = true
+  autoPlannerOpenedOnce.value = true
   mode.value = 'plan'
   isRouteOpen.value = false
 }
@@ -36,10 +38,30 @@ function backToLanding(): void {
 }
 
 function backFromPlanner(): void {
-  mode.value = 'landing'
-  selectedCluster.value = null
+  // Возвращаемся в “Кластер”, если он был открыт, иначе на лендинг.
+  // Важно: не сбрасываем `selectedCluster`, иначе `ClusterPage` (v-if) не отрендерится.
+  mode.value = selectedCluster.value ? 'cluster' : 'landing'
   isPlannerOpen.value = false
 }
+
+watch(
+  () => routePlaces.value.length,
+  (len) => {
+    if (len === 0) {
+      autoPlannerOpenedOnce.value = false
+      return
+    }
+
+    // Открываем планировщик “для туриста” после добавления первого места,
+    // чтобы шаг “когда еду / кто я” был в потоке выбора, а не в отдельной кнопке.
+    if (len === 1 && !autoPlannerOpenedOnce.value && mode.value === 'cluster' && selectedCluster.value) {
+      autoPlannerOpenedOnce.value = true
+      mode.value = 'plan'
+      isRouteOpen.value = false
+      isPlannerOpen.value = true
+    }
+  },
+)
 
 function togglePlaceInRoute(place: Place): void {
   const idx = routePlaces.value.findIndex((p) => p.id === place.id)

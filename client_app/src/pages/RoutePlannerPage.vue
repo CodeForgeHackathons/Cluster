@@ -30,6 +30,33 @@ const generated = ref(false)
 const days = ref<DayPlan[]>([])
 const overallWhy = ref('')
 
+// Вау-блок: “дистанционный визит” (витрина на основе сгенерированного плана).
+const vauSelectedIndex = ref(0)
+
+const vauItems = computed(() => {
+  const items: Array<{
+    place: Place
+    dayIndex: number
+    slot: DaySlot
+    why: string
+  }> = []
+
+  days.value.forEach((d) => {
+    d.places.forEach((p) => {
+      items.push({
+        place: p.place,
+        dayIndex: d.dayIndex,
+        slot: p.slot,
+        why: p.why,
+      })
+    })
+  })
+
+  return items
+})
+
+const vauActive = computed(() => vauItems.value[vauSelectedIndex.value] ?? null)
+
 function monthToSeason(m: number): 'winter' | 'spring' | 'summer' | 'autumn' {
   if (m === 12 || m === 1 || m === 2) return 'winter'
   if (m >= 3 && m <= 5) return 'spring'
@@ -181,6 +208,101 @@ function generate(): void {
 
   const season = monthToSeason(month.value)
   overallWhy.value = `ИИ-куратор (MVP): для ${travelerLabel(travelerType.value)} в ${season === 'winter' ? 'зимний' : season === 'spring' ? 'весенний' : season === 'summer' ? 'летний' : 'осенний'} период мы распределили места по дням так, чтобы сохранить темп, логичность и “вау”-атмосферу.`
+
+  // Всегда начинаем “виртуальный визит” с первого пункта плана.
+  vauSelectedIndex.value = 0
+}
+
+function logisticsForDay(dayIndex: number): { transport: string; stay: string; food: string } {
+  const season = monthToSeason(month.value)
+  const t = travelerType.value
+  const dayTone =
+    dayIndex === 0 ? 'на старте' : dayIndex === 1 ? 'в основной день' : 'в финальной части'
+
+  const seasonPack = (() => {
+    if (season === 'summer') {
+      return {
+        transport: `переезды короткие: больше пеших прогулок и “окна” под закаты (${dayTone})`,
+        food: 'пикники и лёгкие гастро-точки (фермерские продукты + местная кухня)',
+        stay: 'вечером — рядом с ключевыми локациями: меньше времени в дороге',
+      }
+    }
+    if (season === 'winter') {
+      return {
+        transport: `план — с запасом по времени: меньше долгих перемещений (${dayTone})`,
+        food: 'уютные остановки: тёплые дегустации и “домашняя” кухня',
+        stay: 'выбираем размещение ближе к активностям и с комфортным сервисом',
+      }
+    }
+    if (season === 'spring') {
+      return {
+        transport: `маршрут по “коротким лучам”: переходы между локациями удобны (${dayTone})`,
+        food: 'весенние вкусы: свежие продукты и локальные рынки',
+        stay: 'комфортный ночлег рядом, чтобы начинать день без спешки',
+      }
+    }
+    return {
+      transport: `мягкий темп: логистика под осеннюю погоду и виды (${dayTone})`,
+      food: 'вкусные остановки с историей: ремесло, вино, сезонные блюда',
+      stay: 'размещение, которое позволяет чаще возвращаться “в уют”',
+    }
+  })()
+
+  if (t === 'family') {
+    return {
+      transport: `${seasonPack.transport}; больше пауз и “безопасных” точек`,
+      stay: 'вариант размещения с семейным комфортом и удобной навигацией',
+      food: `${seasonPack.food}; учитываем детские форматы и короткие сценарии.`,
+    }
+  }
+  if (t === 'elderly') {
+    return {
+      transport: `${seasonPack.transport}; акцент на доступность и тишину`,
+      stay: 'размещение ближе к “ядру” кластера, без долгих пересадок',
+      food: `${seasonPack.food}; делаем гастро-остановки понятными и без спешки.`,
+    }
+  }
+  if (t === 'digital') {
+    return {
+      transport: `${seasonPack.transport}; день разбит на фокус-сессии и окна перемещения`,
+      stay: 'ночлег рядом, чтобы проще планировать рабочие блоки',
+      food: `${seasonPack.food}; кофе/террасы в сценариях — как опорные точки.`,
+    }
+  }
+
+  return seasonPack
+}
+
+function offerForPlace(place: Place): string {
+  const key = place.id.split('-')[0] ?? ''
+  const season = monthToSeason(month.value)
+
+  const seasonSuffix =
+    season === 'summer'
+      ? 'летний бонус'
+      : season === 'winter'
+        ? 'зимний уют'
+        : season === 'spring'
+          ? 'весенний пик'
+          : 'осеннее предложение'
+
+  const offerByCluster: Record<string, string> = {
+    cl1: 'вечерний видовой сет',
+    cl2: 'тихая прогулка у воды',
+    cl3: 'кофе + фокусный сценарий',
+    cl4: 'дегустация со спецценой',
+    cl5: 'семейный мастер-класс',
+    cl6: 'ремесленная история без толпы',
+  }
+
+  const offer = offerByCluster[key] ?? 'персональный бонус'
+  return `Спецпредложение (${seasonSuffix}): ${offer}.`
+}
+
+function offerForDay(d: DayPlan): string {
+  const first = d.places[0]?.place
+  if (!first) return ''
+  return offerForPlace(first)
 }
 
 const hasPlaces = computed(() => props.routePlaces.length > 0)
@@ -273,6 +395,37 @@ function prettyMonth(m: number): string {
           <div class="planner__resultWhy">{{ overallWhy }}</div>
         </div>
 
+        <section v-if="vauItems.length" class="plannerVau" aria-label="Дистанционный визит (вау)">
+          <div class="plannerVau__header">Дистанционный визит</div>
+
+          <div v-if="vauActive" class="plannerVau__hero">
+            <img :src="vauActive.place.photo" class="plannerVau__heroImg" :alt="vauActive.place.title" />
+            <div class="plannerVau__heroOverlay" aria-hidden="true" />
+            <div class="plannerVau__heroText">
+              <div class="plannerVau__heroTitle">{{ vauActive.place.title }}</div>
+              <div class="plannerVau__heroMeta">
+                День {{ vauActive.dayIndex + 1 }} • {{ vauActive.slot }}
+              </div>
+              <div class="plannerVau__heroWhy">{{ vauActive.why }}</div>
+            </div>
+          </div>
+
+          <div class="plannerVau__thumbs" role="list" aria-label="Сменить объект визита">
+            <button
+              v-for="(it, idx) in vauItems"
+              :key="it.place.id + '-' + idx"
+              type="button"
+              class="plannerVau__thumb"
+              :class="{ 'plannerVau__thumb--active': idx === vauSelectedIndex }"
+              role="listitem"
+              :aria-label="'Показать: ' + it.place.title"
+              @click="vauSelectedIndex = idx"
+            >
+              <img :src="it.place.photo" class="plannerVau__thumbImg" :alt="it.place.title" />
+            </button>
+          </div>
+        </section>
+
         <div class="plannerTimeline" role="list" aria-label="Маршрут по дням">
           <section
             v-for="d in days"
@@ -298,6 +451,26 @@ function prettyMonth(m: number): string {
                   <div class="plannerPlace__why">{{ item.why }}</div>
                 </div>
               </article>
+            </div>
+
+            <div class="plannerDay__logistics">
+              <div class="plannerDay__logTitle">Логистика дня</div>
+              <div class="plannerDay__logLine">
+                <span class="plannerDay__logKey">Транспорт:</span>
+                <span class="plannerDay__logVal">{{ logisticsForDay(d.dayIndex).transport }}</span>
+              </div>
+              <div class="plannerDay__logLine">
+                <span class="plannerDay__logKey">Ночлег:</span>
+                <span class="plannerDay__logVal">{{ logisticsForDay(d.dayIndex).stay }}</span>
+              </div>
+              <div class="plannerDay__logLine">
+                <span class="plannerDay__logKey">Питание:</span>
+                <span class="plannerDay__logVal">{{ logisticsForDay(d.dayIndex).food }}</span>
+              </div>
+
+              <div v-if="offerForDay(d)" class="plannerDay__offer">
+                {{ offerForDay(d) }}
+              </div>
             </div>
           </section>
         </div>
@@ -594,6 +767,145 @@ function prettyMonth(m: number): string {
   opacity: 0.85;
   font-size: 13px;
   text-align: center;
+}
+
+.plannerVau {
+  margin-top: 14px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 14px;
+}
+
+.plannerVau__header {
+  font-weight: 1000;
+  letter-spacing: 0.2px;
+  margin-bottom: 10px;
+}
+
+.plannerVau__hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  min-height: 320px;
+}
+
+.plannerVau__heroImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scale(1.02);
+}
+
+.plannerVau__heroOverlay {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(1200px 450px at 20% 10%, rgba(0, 194, 255, 0.35), transparent 55%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.06) 0%, rgba(0, 0, 0, 0.74) 90%);
+}
+
+.plannerVau__heroText {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 16px;
+  gap: 8px;
+}
+
+.plannerVau__heroTitle {
+  font-weight: 1000;
+  font-size: 20px;
+  letter-spacing: 0.2px;
+  text-shadow: 0 20px 80px rgba(0, 0, 0, 0.55);
+}
+
+.plannerVau__heroMeta {
+  opacity: 0.9;
+  font-size: 13px;
+}
+
+.plannerVau__heroWhy {
+  opacity: 0.95;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.plannerVau__thumbs {
+  display: flex;
+  gap: 10px;
+  overflow: auto;
+  padding-top: 12px;
+}
+
+.plannerVau__thumb {
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+  padding: 6px;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+.plannerVau__thumb:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 194, 255, 0.55);
+}
+
+.plannerVau__thumb--active {
+  border-color: rgba(0, 194, 255, 0.85);
+  background: rgba(0, 194, 255, 0.12);
+}
+
+.plannerVau__thumbImg {
+  width: 96px;
+  height: 64px;
+  object-fit: cover;
+  display: block;
+  border-radius: 10px;
+}
+
+.plannerDay__logistics {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.plannerDay__logTitle {
+  font-weight: 1000;
+  margin-bottom: 8px;
+  letter-spacing: 0.2px;
+}
+
+.plannerDay__logLine {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 6px;
+  align-items: baseline;
+  line-height: 1.3;
+}
+
+.plannerDay__logKey {
+  font-weight: 1000;
+  opacity: 0.95;
+  white-space: nowrap;
+}
+
+.plannerDay__logVal {
+  opacity: 0.92;
+}
+
+.plannerDay__offer {
+  margin-top: 10px;
+  font-weight: 1000;
+  opacity: 0.95;
 }
 
 @media (max-width: 980px) {
