@@ -674,6 +674,18 @@ let previewTimer: number | null = null
 
 const previewDay = computed(() => days.value[previewDayIndex.value] ?? null)
 const previewStep = computed(() => previewDay.value?.places[previewStepIndex.value] ?? null)
+
+function truncateText(s: string, maxLen: number): string {
+  const str = (s ?? '').trim()
+  if (!str) return ''
+  if (str.length <= maxLen) return str
+  return str.slice(0, Math.max(0, maxLen - 1)).trimEnd() + '…'
+}
+
+const previewWhyShort = computed(() => truncateText(previewStep.value?.why ?? '', 170))
+const previewLogisticsShort = computed(() =>
+  truncateText(previewStep.value?.logisticsNotes ?? '', 130),
+)
 const previewProgress = computed(() => {
   const total = previewDay.value?.places.length ?? 0
   if (total <= 1) return 100
@@ -992,25 +1004,40 @@ onBeforeUnmount(() => {
           <div class="tripPreview__progress" :style="{ width: `${previewProgress}%` }" />
         </div>
 
-        <div v-if="previewStep" class="tripPreview__body">
-          <img :src="previewStep.place.photo" :alt="previewStep.place.title" class="tripPreview__img" />
-          <div class="tripPreview__info">
-            <div class="tripPreview__meta">
-              День {{ previewDayIndex + 1 }} • {{ previewStep.slot }} • Шаг {{ previewStepIndex + 1 }}
+        <transition name="tripPreviewStepFade" mode="out-in">
+          <div
+            v-if="previewStep"
+            :key="`preview-${previewDayIndex}-${previewStepIndex}`"
+            class="tripPreview__body"
+          >
+            <img :src="previewStep.place.photo" :alt="previewStep.place.title" class="tripPreview__img" />
+            <div class="tripPreview__info">
+              <div class="tripPreview__meta">
+                День {{ previewDayIndex + 1 }} • {{ previewStep.slot }} • Шаг {{ previewStepIndex + 1 }}
+              </div>
+              <div class="tripPreview__place">{{ previewStep.place.title }}</div>
+              <div class="tripPreview__why">{{ previewWhyShort }}</div>
+              <div class="tripPreview__loc">{{ previewLogisticsShort }}</div>
+              <div v-if="osmEmbedUrlForPlace(previewStep.place)" class="tripPreview__map">
+                <iframe
+                  :src="osmEmbedUrlForPlace(previewStep.place)"
+                  class="tripPreview__mapFrame"
+                  loading="lazy"
+                  referrerpolicy="no-referrer"
+                  aria-label="Мини-карта текущей точки"
+                />
+              </div>
+              <a
+                class="tripPreview__mapLink"
+                :href="osmLinkUrlForPlace(previewStep.place)"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Открыть точку на карте
+              </a>
             </div>
-            <div class="tripPreview__place">{{ previewStep.place.title }}</div>
-            <div class="tripPreview__why">{{ previewStep.why }}</div>
-            <div class="tripPreview__loc">{{ previewStep.place.location }}</div>
-            <a
-              class="tripPreview__mapLink"
-              :href="osmLinkUrlForPlace(previewStep.place)"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Открыть точку на карте
-            </a>
           </div>
-        </div>
+        </transition>
 
         <div class="tripPreview__footer">
           <button type="button" class="tripPreview__ctrlBtn" @click="prevPreviewStep">◀ Назад</button>
@@ -1420,6 +1447,18 @@ onBeforeUnmount(() => {
   height: 280px;
 }
 
+.tripPreview__map {
+  margin-top: 10px;
+}
+
+.tripPreview__mapFrame {
+  width: 100%;
+  height: 170px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  display: block;
+}
+
 .tripPreview__info {
   display: flex;
   flex-direction: column;
@@ -1441,6 +1480,17 @@ onBeforeUnmount(() => {
   margin-top: 12px;
   display: flex;
   justify-content: space-between;
+}
+
+.tripPreviewStepFade-enter-active,
+.tripPreviewStepFade-leave-active {
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.tripPreviewStepFade-enter-from,
+.tripPreviewStepFade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 
 .plannerVau {
