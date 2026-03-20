@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import math
+import re
+from collections import Counter
 from typing import List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from models import Place, PlaceImage
+from models import Place
 from services.deepseek_service import get_embedding
 
 
@@ -39,6 +41,43 @@ def _place_text_for_embedding(place: Place) -> str:
     if desc:
         parts.append(desc[:500])
     return " ".join(p for p in parts if p)
+
+
+def _tokenize(text: str) -> List[str]:
+    """Простая токенизация (ru/en), без внешних зависимостей."""
+    if not text:
+        return []
+    # Оставляем только слова и числа
+    tokens = re.findall(r"[a-zA-Zа-яА-ЯёЁ0-9]+", text.lower())
+    # Убираем очень короткие токены
+    return [t for t in tokens if len(t) >= 2]
+
+
+def _local_semantic_score(query_text: str, place_text: str, doc_freq: Counter, docs_count: int) -> float:
+    """
+    Бесплатный fallback-скоринг (TF-IDF-подобный):
+    - учитывает совпадения токенов запроса и документа
+    - даёт больший вес редким токенам (через IDF)
+    """
+    q_tokens = _tokenize(query_text)
+    d_tokens = _tokenize(place_text)
+    if not q_tokens or not d_tokens:
+        return 0.0
+
+    q_tf = Counter(q_tokens)
+    d_tf = Counter(d_tokens)
+
+    score = 0.0
+    for token, q_count in q_tf.items():
+        d_count = d_tf.get(token, 0)
+        if d_count == 0:
+            continue
+        df = doc_freq.get(token, 0)
+        idf = math.log((1 + docs_count) / (1 + df)) + 1.0
+        score += (1.0 + math.log1p(q_count)) * (1.0 + math.log1p(d_count)) * idf
+
+    # Нормализация по длине документа
+    return score / (1.0 + math.log1p(len(d_tokens)))
 
 
 def _query_text_from_preferences(
@@ -82,16 +121,30 @@ def search_places_by_embedding(
     Ищет места по семантической близости к запросу.
     Возвращает только места с заполненным embedding.
     """
-    query_embedding = get_embedding(query_text)
-    if not query_embedding:
-        return []
-
     stmt = (
         select(Place)
-        .where(Place.embedding.isnot(None))
         .options(joinedload(Place.images), selectinload(Place.reviews))
     )
     places = list(db.execute(stmt).unique().scalars().all())
+    if not places:
+        return []
+
+    query_embedding = get_embedding(query_text)
+    if not query_embedding:
+        # Вариант B: полностью бесплатный локальный поиск "по смыслу"
+        place_texts = [_place_text_for_embedding(p) for p in places]
+        docs_count = len(place_texts)
+        doc_freq: Counter = Counter()
+        for txt in place_texts:
+            doc_freq.update(set(_tokenize(txt)))
+
+        local_scored: List[tuple[Place, float]] = []
+        for p, txt in zip(places, place_texts):
+            s = _local_semantic_score(query_text, txt, doc_freq, docs_count)
+            if s > 0:
+                local_scored.append((p, s))
+        local_scored.sort(key=lambda x: x[1], reverse=True)
+        return [p for p, _ in local_scored[:limit]]
 
     scored: List[tuple[Place, float]] = []
     for place in places:

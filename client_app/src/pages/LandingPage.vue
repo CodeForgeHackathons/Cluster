@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import seaImg from '../assets/kk/пляж.jfif'
 import wineImg from '../assets/kk/винодельня.jfif'
 import kidsImg from '../assets/kk/дети.png'
@@ -62,18 +62,6 @@ const filters: Filter[] = [
   },
 ]
 
-type StubCluster = {
-  id: string
-  image: string
-  rating: number
-  reviews: string
-  title: string
-  meta: string
-  price: number
-}
-
-// Заглушка вместо данных из бэка: чтобы MVP выглядел как “озон-путешествия”.
-// Позже сюда подставим реальные данные кластеров и маршрутов.
 const fallbackCards: ClusterCard[] = [
   { id: 'cl1', image: seaImg, rating: 4.9, reviews: 'По отзывам', title: 'Отель и прогулки у моря', meta: 'Краснодарский край', price: 7361 },
   { id: 'cl2', image: calmImg, rating: 5.0, reviews: 'По отзывам', title: 'Дом среди природы', meta: 'Тихий район', price: 5429 },
@@ -242,65 +230,23 @@ const filtersDismissed = ref(false)
 const isBgBlurring = ref(false)
 const clustersVisible = ref(false)
 
-// Временный “бесконечный” список кластеров (MVP-заглушка).
-const PAGE_SIZE = 6
-const visibleCount = ref(PAGE_SIZE)
+const clusterFilterMap: Record<string, string[]> = {
+  run: ['cl1', 'cl2', 'cl6'],
+  taste: ['cl4'],
+  kids: ['cl5'],
+  view: ['cl3'],
+  calm: ['cl2', 'cl6'],
+  secret: ['cl6'],
+}
+
 const visibleClusters = computed(() => {
   const list = clusterCards.value
-  const baseLen = list.length
-  if (baseLen === 0) return []
-  return Array.from({ length: visibleCount.value }, (_, i) => list[i % baseLen]!)
+  const selected = selectedId.value
+  if (!selected) return list
+  const allowed = new Set(clusterFilterMap[selected] ?? [])
+  const filtered = list.filter((c) => allowed.has(c.id))
+  return filtered.length ? filtered : list
 })
-
-const clustersSentinel = ref<HTMLElement | null>(null)
-const isLoadingMore = ref(false)
-let clustersObserver: IntersectionObserver | null = null
-
-function disconnectClustersObserver(): void {
-  if (clustersObserver) clustersObserver.disconnect()
-  clustersObserver = null
-}
-
-function connectClustersObserver(): void {
-  disconnectClustersObserver()
-
-  if (!clustersSentinel.value) return
-  clustersObserver = new IntersectionObserver(
-    (entries) => {
-      const first = entries[0]
-      if (!first?.isIntersecting) return
-      if (isLoadingMore.value) return
-
-      // Подгружаем следующую “пачку” в момент близости к концу списка.
-      isLoadingMore.value = true
-      visibleCount.value += PAGE_SIZE
-
-      // Небольшая пауза, чтобы не разгонять события.
-      window.setTimeout(() => {
-        isLoadingMore.value = false
-      }, 250)
-    },
-    { root: null, threshold: 0.15 },
-  )
-
-  clustersObserver.observe(clustersSentinel.value)
-}
-
-watch(
-  clustersVisible,
-  async (v) => {
-    if (!v) {
-      disconnectClustersObserver()
-      visibleCount.value = PAGE_SIZE
-      return
-    }
-
-    visibleCount.value = PAGE_SIZE
-    await nextTick()
-    connectClustersObserver()
-  },
-  { immediate: false },
-)
 
 const blurStartDelayMs = 900
 const blurHoldMs = 520
@@ -364,8 +310,6 @@ function resetToInitial(): void {
   isBgFading.value = false
   clustersVisible.value = false
   isGalleryOpen.value = false
-  visibleCount.value = PAGE_SIZE
-  disconnectClustersObserver()
 
   currentBgUrl.value = defaultBgUrl
   nextBgUrl.value = defaultBgUrl
@@ -375,7 +319,6 @@ onBeforeUnmount(() => {
   if (bgFadeTimer !== undefined) window.clearTimeout(bgFadeTimer)
   if (bgBlurTimer !== undefined) window.clearTimeout(bgBlurTimer)
   if (bgSwitchTimer !== undefined) window.clearTimeout(bgSwitchTimer)
-  disconnectClustersObserver()
 })
 </script>
 
@@ -465,7 +408,7 @@ onBeforeUnmount(() => {
           v-for="(c, idx) in visibleClusters"
           :key="c.id + '-' + idx"
           class="landing__clusterCard"
-          :data-idx="idx % PAGE_SIZE"
+          :data-idx="idx % 6"
           role="button"
           tabindex="0"
           :aria-label="`Открыть кластер: ${c.title}`"
@@ -503,8 +446,6 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </article>
-
-        <div ref="clustersSentinel" class="landing__clustersSentinel" aria-hidden="true" />
       </section>
 
       <div
