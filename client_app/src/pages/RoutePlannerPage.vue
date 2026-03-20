@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { getApiBase } from '../api/client'
 import type { Place } from '../types/cluster'
 
@@ -467,6 +467,8 @@ async function generate(): Promise<void> {
     generateLoading.value = false
   }
   vauSelectedIndex.value = 0
+  stopTripPreviewAutoplay()
+  isTripPreviewOpen.value = false
 }
 // (локальный fallback удалён — генерация через API)
 function _unusedLocalFallback_REMOVED() {
@@ -663,6 +665,94 @@ function osmLinkUrlForDay(d: DayPlan): string {
 const hasPlaces = computed(() => props.routePlaces.length > 0)
 const totalCost = computed(() => props.routePlaces.reduce((sum, p) => sum + p.cost, 0))
 
+// "Примерка поездки": интерактивный проигрыватель маршрута.
+const isTripPreviewOpen = ref(false)
+const previewDayIndex = ref(0)
+const previewStepIndex = ref(0)
+const previewAutoplay = ref(false)
+let previewTimer: number | null = null
+
+const previewDay = computed(() => days.value[previewDayIndex.value] ?? null)
+const previewStep = computed(() => previewDay.value?.places[previewStepIndex.value] ?? null)
+const previewProgress = computed(() => {
+  const total = previewDay.value?.places.length ?? 0
+  if (total <= 1) return 100
+  return Math.round((previewStepIndex.value / (total - 1)) * 100)
+})
+
+function openTripPreview(): void {
+  if (!days.value.length) return
+  isTripPreviewOpen.value = true
+  previewDayIndex.value = 0
+  previewStepIndex.value = 0
+}
+
+function closeTripPreview(): void {
+  stopTripPreviewAutoplay()
+  isTripPreviewOpen.value = false
+}
+
+function nextPreviewStep(): void {
+  const d = previewDay.value
+  if (!d || !d.places.length) return
+  if (previewStepIndex.value < d.places.length - 1) {
+    previewStepIndex.value += 1
+    return
+  }
+  if (previewDayIndex.value < days.value.length - 1) {
+    previewDayIndex.value += 1
+    previewStepIndex.value = 0
+    return
+  }
+  // Конец сценария — останавливаемся на последнем шаге.
+  stopTripPreviewAutoplay()
+}
+
+function prevPreviewStep(): void {
+  if (previewStepIndex.value > 0) {
+    previewStepIndex.value -= 1
+    return
+  }
+  if (previewDayIndex.value > 0) {
+    previewDayIndex.value -= 1
+    const d = days.value[previewDayIndex.value]
+    previewStepIndex.value = Math.max((d?.places.length ?? 1) - 1, 0)
+  }
+}
+
+function selectPreviewDay(dayIndex: number): void {
+  previewDayIndex.value = dayIndex
+  previewStepIndex.value = 0
+}
+
+function toggleTripPreviewAutoplay(): void {
+  if (previewAutoplay.value) {
+    stopTripPreviewAutoplay()
+  } else {
+    startTripPreviewAutoplay()
+  }
+}
+
+function startTripPreviewAutoplay(): void {
+  stopTripPreviewAutoplay()
+  previewAutoplay.value = true
+  previewTimer = window.setInterval(() => {
+    nextPreviewStep()
+  }, 2200)
+}
+
+function stopTripPreviewAutoplay(): void {
+  previewAutoplay.value = false
+  if (previewTimer !== null) {
+    window.clearInterval(previewTimer)
+    previewTimer = null
+  }
+}
+
+onBeforeUnmount(() => {
+  stopTripPreviewAutoplay()
+})
+
 </script>
 
 <template>
@@ -734,6 +824,9 @@ const totalCost = computed(() => props.routePlaces.reduce((sum, p) => sum + p.co
             Результат на {{ startDateLabel }}–{{ endDateLabel }} • {{ travelerLabel(travelerType) }}
           </div>
           <div class="planner__resultWhy">{{ overallWhy }}</div>
+          <button type="button" class="planner__previewBtn" @click="openTripPreview">
+            Примерить поездку
+          </button>
         </div>
 
         <section class="plannerWeather" aria-label="Прогноз погоды">
@@ -869,6 +962,62 @@ const totalCost = computed(() => props.routePlaces.reduce((sum, p) => sum + p.co
         </div>
       </div>
     </section>
+
+    <div v-if="isTripPreviewOpen" class="tripPreview" role="dialog" aria-modal="true">
+      <div class="tripPreview__card">
+        <div class="tripPreview__header">
+          <div class="tripPreview__title">Примерка поездки</div>
+          <div class="tripPreview__controls">
+            <button type="button" class="tripPreview__ctrlBtn" @click="toggleTripPreviewAutoplay">
+              {{ previewAutoplay ? 'Пауза' : 'Автоплей' }}
+            </button>
+            <button type="button" class="tripPreview__ctrlBtn" @click="closeTripPreview">Закрыть</button>
+          </div>
+        </div>
+
+        <div class="tripPreview__days">
+          <button
+            v-for="d in days"
+            :key="'pday-' + d.dayIndex"
+            type="button"
+            class="tripPreview__dayBtn"
+            :class="{ 'tripPreview__dayBtn--active': d.dayIndex === previewDayIndex }"
+            @click="selectPreviewDay(d.dayIndex)"
+          >
+            День {{ d.dayIndex + 1 }}
+          </button>
+        </div>
+
+        <div class="tripPreview__progressWrap">
+          <div class="tripPreview__progress" :style="{ width: `${previewProgress}%` }" />
+        </div>
+
+        <div v-if="previewStep" class="tripPreview__body">
+          <img :src="previewStep.place.photo" :alt="previewStep.place.title" class="tripPreview__img" />
+          <div class="tripPreview__info">
+            <div class="tripPreview__meta">
+              День {{ previewDayIndex + 1 }} • {{ previewStep.slot }} • Шаг {{ previewStepIndex + 1 }}
+            </div>
+            <div class="tripPreview__place">{{ previewStep.place.title }}</div>
+            <div class="tripPreview__why">{{ previewStep.why }}</div>
+            <div class="tripPreview__loc">{{ previewStep.place.location }}</div>
+            <a
+              class="tripPreview__mapLink"
+              :href="osmLinkUrlForPlace(previewStep.place)"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Открыть точку на карте
+            </a>
+          </div>
+        </div>
+
+        <div class="tripPreview__footer">
+          <button type="button" class="tripPreview__ctrlBtn" @click="prevPreviewStep">◀ Назад</button>
+          <button type="button" class="tripPreview__ctrlBtn" @click="nextPreviewStep">Дальше ▶</button>
+        </div>
+      </div>
+    </div>
   </main>
 </template>
 
@@ -1058,6 +1207,17 @@ const totalCost = computed(() => props.routePlaces.reduce((sum, p) => sum + p.co
   line-height: 1.4;
 }
 
+.planner__previewBtn {
+  margin-top: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 194, 255, 0.55);
+  background: rgba(0, 194, 255, 0.14);
+  color: rgba(255, 255, 255, 0.98);
+  padding: 8px 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .plannerTimeline {
   margin-top: 14px;
   display: grid;
@@ -1161,6 +1321,126 @@ const totalCost = computed(() => props.routePlaces.reduce((sum, p) => sum + p.co
   opacity: 0.85;
   font-size: 13px;
   text-align: center;
+}
+
+.tripPreview {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+}
+
+.tripPreview__card {
+  width: min(980px, 100%);
+  max-height: 88vh;
+  overflow: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(20, 22, 30, 0.9);
+  padding: 14px;
+}
+
+.tripPreview__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.tripPreview__title {
+  font-weight: 900;
+  font-size: 18px;
+}
+
+.tripPreview__controls {
+  display: flex;
+  gap: 8px;
+}
+
+.tripPreview__ctrlBtn {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.98);
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
+.tripPreview__days {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tripPreview__dayBtn {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.96);
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.tripPreview__dayBtn--active {
+  border-color: rgba(0, 194, 255, 0.8);
+  background: rgba(0, 194, 255, 0.18);
+}
+
+.tripPreview__progressWrap {
+  margin-top: 12px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.tripPreview__progress {
+  height: 100%;
+  background: linear-gradient(90deg, #00c2ff, #71d9ff);
+  transition: width 280ms ease;
+}
+
+.tripPreview__body {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 12px;
+}
+
+.tripPreview__img {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  object-fit: cover;
+  height: 280px;
+}
+
+.tripPreview__info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tripPreview__meta { opacity: 0.86; font-size: 13px; }
+.tripPreview__place { font-size: 20px; font-weight: 900; }
+.tripPreview__why { line-height: 1.45; opacity: 0.96; }
+.tripPreview__loc { opacity: 0.85; font-size: 13px; }
+
+.tripPreview__mapLink {
+  margin-top: 8px;
+  color: #8fe6ff;
+  text-decoration: none;
+}
+
+.tripPreview__footer {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
 }
 
 .plannerVau {
