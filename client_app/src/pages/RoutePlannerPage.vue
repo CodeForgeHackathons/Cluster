@@ -2,6 +2,8 @@
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { getApiBase } from '../api/client'
 import type { Place } from '../types/cluster'
+import RouteMap from '../components/RouteMap.vue'
+import type { MapPoint } from '../components/RouteMap.vue'
 
 type TravelerType = 'family' | 'elderly' | 'digital' | 'gastro' | 'active' | 'eco'
 
@@ -665,6 +667,45 @@ function osmLinkUrlForDay(d: DayPlan): string {
 const hasPlaces = computed(() => props.routePlaces.length > 0)
 const totalCost = computed(() => props.routePlaces.reduce((sum, p) => sum + p.cost, 0))
 
+// --- Leaflet карта маршрута ---
+const activeMapPointId = ref<string | null>(null)
+
+const mapPoints = computed<MapPoint[]>(() => {
+  const pts: MapPoint[] = []
+  days.value.forEach((d) => {
+    d.places.forEach((item) => {
+      pts.push({
+        id: item.place.id,
+        title: item.place.title,
+        location: item.place.location,
+        lat: item.place.coordinates.lat,
+        lon: item.place.coordinates.lon,
+        day: d.dayIndex,
+        slot: item.slot,
+        cost: item.place.cost,
+        rating: item.place.rating,
+        photo: item.place.photo,
+      })
+    })
+  })
+  return pts
+})
+
+function onMapSelectPoint(id: string): void {
+  activeMapPointId.value = id
+  // Синхронизируем с TripPreview: ищем шаг по id
+  for (let di = 0; di < days.value.length; di++) {
+    const d = days.value[di]!
+    for (let si = 0; si < d.places.length; si++) {
+      if (d.places[si]!.place.id === id) {
+        previewDayIndex.value = di
+        previewStepIndex.value = si
+        return
+      }
+    }
+  }
+}
+
 // "Примерка поездки": интерактивный проигрыватель маршрута.
 const isTripPreviewOpen = ref(false)
 const previewDayIndex = ref(0)
@@ -697,6 +738,7 @@ function openTripPreview(): void {
   isTripPreviewOpen.value = true
   previewDayIndex.value = 0
   previewStepIndex.value = 0
+  activeMapPointId.value = days.value[0]?.places[0]?.place.id ?? null
 }
 
 function closeTripPreview(): void {
@@ -709,11 +751,13 @@ function nextPreviewStep(): void {
   if (!d || !d.places.length) return
   if (previewStepIndex.value < d.places.length - 1) {
     previewStepIndex.value += 1
+    activeMapPointId.value = previewStep.value?.place.id ?? null
     return
   }
   if (previewDayIndex.value < days.value.length - 1) {
     previewDayIndex.value += 1
     previewStepIndex.value = 0
+    activeMapPointId.value = previewStep.value?.place.id ?? null
     return
   }
   // Конец сценария — останавливаемся на последнем шаге.
@@ -723,12 +767,14 @@ function nextPreviewStep(): void {
 function prevPreviewStep(): void {
   if (previewStepIndex.value > 0) {
     previewStepIndex.value -= 1
+    activeMapPointId.value = previewStep.value?.place.id ?? null
     return
   }
   if (previewDayIndex.value > 0) {
     previewDayIndex.value -= 1
     const d = days.value[previewDayIndex.value]
     previewStepIndex.value = Math.max((d?.places.length ?? 1) - 1, 0)
+    activeMapPointId.value = previewStep.value?.place.id ?? null
   }
 }
 
@@ -899,6 +945,15 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
+        <section v-if="mapPoints.length" class="plannerMapSection">
+          <div class="plannerMapSection__header">Карта вашего путешествия</div>
+          <RouteMap
+            :points="mapPoints"
+            :active-point-id="activeMapPointId"
+            @select-point="onMapSelectPoint"
+          />
+        </section>
+
         <div class="plannerTimeline" role="list" aria-label="Маршрут по дням">
           <section
             v-for="d in days"
@@ -913,7 +968,13 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="plannerDay__list">
-              <article v-for="item in d.places" :key="item.place.id" class="plannerPlace">
+              <article
+                v-for="item in d.places"
+                :key="item.place.id"
+                class="plannerPlace"
+                :class="{ 'plannerPlace--active': activeMapPointId === item.place.id }"
+                @click="onMapSelectPoint(item.place.id)"
+              >
                 <img :src="item.place.photo" :alt="item.place.title" class="plannerPlace__img" />
                 <div class="plannerPlace__body">
                   <div class="plannerPlace__row">
@@ -1246,10 +1307,24 @@ onBeforeUnmount(() => {
 }
 
 .plannerTimeline {
-  margin-top: 14px;
+  margin-top: 24px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
+}
+
+.plannerMapSection {
+  margin-top: 24px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 14px;
+}
+
+.plannerMapSection__header {
+  font-weight: 1000;
+  letter-spacing: 0.2px;
+  margin-bottom: 14px;
 }
 
 .plannerDay {
@@ -1293,6 +1368,19 @@ onBeforeUnmount(() => {
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease;
+}
+
+.plannerPlace:hover {
+  transform: translateX(4px);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.plannerPlace--active {
+  border-color: rgba(0, 194, 255, 0.65);
+  background: rgba(0, 194, 255, 0.08);
+  box-shadow: 0 0 20px rgba(0, 194, 255, 0.15);
 }
 
 .plannerPlace__img {
@@ -1730,4 +1818,3 @@ onBeforeUnmount(() => {
   }
 }
 </style>
-
