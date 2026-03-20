@@ -23,7 +23,9 @@ class Place(Base):
     __tablename__ = "places"
 
     place_id: Mapped[int] = Column(Integer, primary_key=True, index=True)
-    business_id: Mapped[int] = Column(Integer, nullable=False, index=True)
+    business_id: Mapped[int] = Column(
+        Integer, ForeignKey("business_representatives.id"), nullable=False, index=True
+    )
 
     name: Mapped[str] = Column(String(255), nullable=False)
     # Тип места для фильтрации на фронтенде (например: "винодельня", "отель")
@@ -43,6 +45,11 @@ class Place(Base):
     updated_at: Mapped[datetime] = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     # Eager loaded в эндпоинтах: joinedload(Place.images) + selectinload(Place.reviews)
+    business_rep: Mapped["BusinessRepresentative"] = relationship(
+        "BusinessRepresentative",
+        back_populates="places",
+        lazy="selectin",
+    )
     images: Mapped[List["PlaceImage"]] = relationship(
         "PlaceImage",
         back_populates="place",
