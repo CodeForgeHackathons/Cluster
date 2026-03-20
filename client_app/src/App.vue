@@ -2,9 +2,10 @@
 import { computed, ref } from 'vue'
 import LandingPage from './pages/LandingPage.vue'
 import ClusterPage from './pages/ClusterPage.vue'
+import RoutePlannerPage from './pages/RoutePlannerPage.vue'
 import type { Cluster, Place } from './types/cluster'
 
-type Mode = 'landing' | 'cluster'
+type Mode = 'landing' | 'cluster' | 'plan'
 
 const mode = ref<Mode>('landing')
 const selectedCluster = ref<Cluster | null>(null)
@@ -14,6 +15,14 @@ const routePlaces = ref<Place[]>([])
 const routePlaceIds = computed(() => new Set(routePlaces.value.map((p) => p.id)))
 
 const isRouteOpen = ref(false)
+const isPlannerOpen = ref(false)
+
+function openPlanner(): void {
+  if (routePlaces.value.length === 0) return
+  isPlannerOpen.value = true
+  mode.value = 'plan'
+  isRouteOpen.value = false
+}
 
 function openCluster(cluster: Cluster): void {
   selectedCluster.value = cluster
@@ -24,6 +33,12 @@ function openCluster(cluster: Cluster): void {
 function backToLanding(): void {
   mode.value = 'landing'
   selectedCluster.value = null
+}
+
+function backFromPlanner(): void {
+  mode.value = 'landing'
+  selectedCluster.value = null
+  isPlannerOpen.value = false
 }
 
 function togglePlaceInRoute(place: Place): void {
@@ -45,7 +60,7 @@ function togglePlaceInRoute(place: Place): void {
   />
 
   <button
-    v-if="routePlaces.length > 0"
+    v-if="routePlaces.length > 0 && mode !== 'plan'"
     type="button"
     class="routeFab"
     :aria-label="`Открыть маршрут. В нём ${routePlaces.length} мест`"
@@ -93,11 +108,27 @@ function togglePlaceInRoute(place: Place): void {
         </div>
 
         <div class="routeDrawer__footer">
-          <div class="routeDrawer__hint">MVP: маршрут не отправляется, только собирается.</div>
+          <div class="routeDrawer__footerRow">
+            <div class="routeDrawer__hint">MVP: маршрут не отправляется, только планируется.</div>
+            <button
+              type="button"
+              class="routeDrawer__planBtn"
+              :disabled="routePlaces.length === 0"
+              @click="openPlanner"
+            >
+              Собрать маршрут
+            </button>
+          </div>
         </div>
       </div>
     </div>
   </transition>
+
+  <RoutePlannerPage
+    v-if="mode === 'plan'"
+    :route-places="routePlaces"
+    @back="backFromPlanner"
+  />
 </template>
 
 <style scoped>
@@ -252,10 +283,51 @@ function togglePlaceInRoute(place: Place): void {
   border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+.routeDrawer__footerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.routeDrawer__planBtn {
+  border-radius: 14px;
+  border: 1px solid rgba(0, 194, 255, 0.5);
+  background: rgba(0, 194, 255, 0.12);
+  color: rgba(255, 255, 255, 0.98);
+  padding: 10px 12px;
+  font-weight: 1000;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+  white-space: nowrap;
+}
+
+.routeDrawer__planBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.routeDrawer__planBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: rgba(0, 194, 255, 0.75);
+  background: rgba(0, 194, 255, 0.18);
+}
+
 .routeDrawer__hint {
   opacity: 0.85;
   color: rgba(255, 255, 255, 0.95);
   font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .routeDrawer__footerRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .routeDrawer__planBtn {
+    width: 100%;
+  }
 }
 
 .routeDrawer-enter-active,
