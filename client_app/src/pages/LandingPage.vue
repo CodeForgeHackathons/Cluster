@@ -240,7 +240,9 @@ const clusterFilterMap: Record<string, string[]> = {
 }
 
 const visibleClusters = computed(() => {
-  const list = clusterCards.value
+  const dedup = new Map<string, ClusterCard>()
+  for (const c of clusterCards.value) dedup.set(c.id, c)
+  const list = Array.from(dedup.values())
   const selected = selectedId.value
   if (!selected) return list
   const allowed = new Set(clusterFilterMap[selected] ?? [])
@@ -752,10 +754,6 @@ onBeforeUnmount(() => {
   gap: 16px;
   padding: 0 8px 6px;
   animation: clustersIn 720ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-.landing__clustersSentinel {
-  height: 1px;
 }
 
 .landing__clusterCard {
