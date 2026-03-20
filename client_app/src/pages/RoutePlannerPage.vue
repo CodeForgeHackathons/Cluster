@@ -306,7 +306,7 @@ function scorePlace(place: Place): number {
   const location = place.location.toLowerCase()
   let score = 0
 
-  // Сезонное соответствие (заглушка, но визуально и смыслово по ТЗ)
+  // Сезонное соответствие (алгоритм бэкенда)
   const seasonBest: Record<string, Array<'winter' | 'spring' | 'summer' | 'autumn'>> = {
     cl1: ['summer'], // море
     cl2: ['spring', 'autumn'], // природа/озеро

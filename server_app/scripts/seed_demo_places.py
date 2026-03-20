@@ -18,6 +18,40 @@ from database.session import Base, LocalSession, engine
 from models import BusinessRepresentative, Place, PlaceImage
 
 
+# Реальные фото Краснодарского края и тематические (Unsplash, бесплатная лицензия)
+CLUSTER_IMAGES: dict[str, list[str]] = {
+    "cl1": [  # море, пляж
+        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&h=400&fit=crop",
+        "https://images.unsplash.com/photo-1519046904884-53103b34b206?w=600&h=400&fit=crop",
+        "https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=600&h=400&fit=crop",
+    ],
+    "cl2": [  # природа, озеро
+        "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=600&h=400&fit=crop",
+        "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=600&h=400&fit=crop",
+        "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=600&h=400&fit=crop",
+    ],
+    "cl3": [  # работа с видом
+        "https://images.unsplash.com/photo-1497366216548-37526070297c?w=600&h=400&fit=crop",
+        "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=600&h=400&fit=crop",
+        "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=600&h=400&fit=crop",
+    ],
+    "cl4": [  # вино, дегустации
+        "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=600&h=400&fit=crop",
+        "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=600&h=400&fit=crop",
+        "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=600&h=400&fit=crop",
+    ],
+    "cl5": [  # семья, дети
+        "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=600&h=400&fit=crop",
+        "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=600&h=400&fit=crop",
+        "https://images.unsplash.com/photo-1476703993599-0035a21b17a9?w=600&h=400&fit=crop",
+    ],
+    "cl6": [  # станица, ремесла
+        "https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=600&h=400&fit=crop",
+        "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&h=400&fit=crop",
+        "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=600&h=400&fit=crop",
+    ],
+}
+
 STUB_CLUSTERS = [
     {
         "cluster_id": "cl1",
@@ -149,12 +183,13 @@ def main() -> None:
                 db.add(place)
                 db.flush()  # чтобы place_id появился
 
-                # Заглушка картинок (публичные URL)
+                # Реальные тематические фото (Unsplash)
+                img_urls = CLUSTER_IMAGES.get(cluster_id, [
+                    "https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=600&h=400&fit=crop",
+                ] * 2)
                 for j in range(1, 3):
-                    img = PlaceImage(
-                        place_id=place.place_id,
-                        image_url=f"https://picsum.photos/seed/{cluster_id}-{i}-{j}/600/400",
-                    )
+                    url = img_urls[(i + j) % len(img_urls)]
+                    img = PlaceImage(place_id=place.place_id, image_url=url)
                     db.add(img)
 
         db.commit()

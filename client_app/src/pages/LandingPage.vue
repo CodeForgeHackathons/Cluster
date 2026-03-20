@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import seaImg from '../assets/kk/пляж.jfif'
 import wineImg from '../assets/kk/винодельня.jfif'
 import kidsImg from '../assets/kk/дети.png'
 import viewImg from '../assets/kk/коворкинг.jpg'
 import calmImg from '../assets/kk/природа.jpg'
 import secretImg from '../assets/kk/станица.jfif'
+import { fetchClusters, type ClusterCard } from '../api/clusters'
 import type { Cluster } from '../types/cluster'
 
 const emit = defineEmits<{
@@ -73,64 +74,30 @@ type StubCluster = {
 
 // Заглушка вместо данных из бэка: чтобы MVP выглядел как “озон-путешествия”.
 // Позже сюда подставим реальные данные кластеров и маршрутов.
-const stubClusters: StubCluster[] = [
-  {
-    id: 'cl1',
-    image: seaImg,
-    rating: 4.9,
-    reviews: '359 отзывов',
-    title: 'Отель и прогулки у моря',
-    meta: 'Краснодарский край · 4–5 км от центра',
-    price: 7361,
-  },
-  {
-    id: 'cl2',
-    image: calmImg,
-    rating: 5.0,
-    reviews: '27 отзывов',
-    title: 'Дом среди природы',
-    meta: 'Тихий район · до озера 1–2 км',
-    price: 5429,
-  },
-  {
-    id: 'cl3',
-    image: viewImg,
-    rating: 4.9,
-    reviews: '84 отзыва',
-    title: 'Локация для работы с видом',
-    meta: 'Кофе, терраса, рабочие места',
-    price: 7854,
-  },
-  {
-    id: 'cl4',
-    image: wineImg,
-    rating: 4.9,
-    reviews: '242 отзыва',
-    title: 'Винные маршруты и дегустации',
-    meta: 'Вкус, атмосфера и местные продукты',
-    price: 12328,
-  },
-  {
-    id: 'cl5',
-    image: kidsImg,
-    rating: 4.9,
-    reviews: '174 отзыва',
-    title: 'Куда сходить с детьми',
-    meta: 'Интересно взрослым и детям',
-    price: 6000,
-  },
-  {
-    id: 'cl6',
-    image: secretImg,
-    rating: 4.8,
-    reviews: '95 отзывов',
-    title: 'Нестандартная станица и ремесла',
-    meta: 'Меньше людей · больше впечатлений',
-    price: 7010,
-  },
+const fallbackCards: ClusterCard[] = [
+  { id: 'cl1', image: seaImg, rating: 4.9, reviews: 'По отзывам', title: 'Отель и прогулки у моря', meta: 'Краснодарский край', price: 7361 },
+  { id: 'cl2', image: calmImg, rating: 5.0, reviews: 'По отзывам', title: 'Дом среди природы', meta: 'Тихий район', price: 5429 },
+  { id: 'cl3', image: viewImg, rating: 4.9, reviews: 'По отзывам', title: 'Локация для работы с видом', meta: 'Кофе, терраса', price: 7854 },
+  { id: 'cl4', image: wineImg, rating: 4.9, reviews: 'По отзывам', title: 'Винные маршруты', meta: 'Вкус, дегустации', price: 12328 },
+  { id: 'cl5', image: kidsImg, rating: 4.9, reviews: 'По отзывам', title: 'Куда сходить с детьми', meta: 'Семейный отдых', price: 6000 },
+  { id: 'cl6', image: secretImg, rating: 4.8, reviews: 'По отзывам', title: 'Нестандартная станица', meta: 'Ремесла', price: 7010 },
 ]
 
-const factPresets: Record<string, [string, string, string]> = {
+const clusterCards = ref<ClusterCard[]>(fallbackCards)
+const clusterByIdRef = ref<Map<string, Cluster>>(buildFallbackClusters(fallbackCards))
+const clustersLoading = ref(true)
+
+onMounted(async () => {
+  const result = await fetchClusters()
+  clustersLoading.value = false
+  if (result) {
+    clusterCards.value = result.cards
+    clusterByIdRef.value = result.clusters
+  }
+})
+
+function buildFallbackClusters(cards: ClusterCard[]): Map<string, Cluster> {
+  const factPresets: Record<string, [string, string, string]> = {
   cl1: ['Соль в воздухе', 'Закат рядом', 'Тихая бухта'],
   cl2: ['Тишина рядом', 'Чай и зелень', 'Туман красиво'],
   cl3: ['Фокус и вид', 'Дела в тишине', 'Заметки на свежем'],
@@ -160,8 +127,8 @@ const clusterCoords: Record<string, { lat: number; lon: number }> = {
   cl6: { lat: 44.476, lon: 39.016 }, // станица/ремесла (примерно Новороссийск/окрестности)
 }
 
-const clusterById = new Map<string, Cluster>(
-  stubClusters.map((c) => {
+  const map = new Map<string, Cluster>()
+  for (const c of cards) {
     const [fact1, fact2, fact3] = factPresets[c.id] ?? ['Впечатления', 'Вдохновение', 'Путешествие']
     const placePhotos = clusterPhotoSets[c.id] ?? [c.image, c.image, c.image]
     const coords = clusterCoords[c.id] ?? { lat: 45.0, lon: 38.0 }
@@ -228,25 +195,24 @@ const clusterById = new Map<string, Cluster>(
       title: c.title,
       places,
     }
-
-    return [c.id, cluster] as const
-  }),
-)
+    map.set(c.id, cluster)
+  }
+  return map
+}
 
 function openClusterById(id: string): void {
-  const cluster = clusterById.get(id)
+  const cluster = clusterByIdRef.value.get(id)
   if (!cluster) return
   emit('openCluster', cluster)
 }
 
-// Галерея фото внутри карточек кластеров (MVP: локальные заглушки).
 const isGalleryOpen = ref(false)
 const galleryClusterTitle = ref('')
 const galleryImages = ref<string[]>([])
 const galleryActiveIndex = ref(0)
 
 function openClusterGallery(id: string): void {
-  const cluster = clusterById.get(id)
+  const cluster = clusterByIdRef.value.get(id)
   if (!cluster) return
 
   galleryClusterTitle.value = cluster.title
@@ -280,9 +246,10 @@ const clustersVisible = ref(false)
 const PAGE_SIZE = 6
 const visibleCount = ref(PAGE_SIZE)
 const visibleClusters = computed(() => {
-  const baseLen = stubClusters.length
+  const list = clusterCards.value
+  const baseLen = list.length
   if (baseLen === 0) return []
-  return Array.from({ length: visibleCount.value }, (_, i) => stubClusters[i % baseLen]!)
+  return Array.from({ length: visibleCount.value }, (_, i) => list[i % baseLen]!)
 })
 
 const clustersSentinel = ref<HTMLElement | null>(null)
@@ -492,7 +459,7 @@ onBeforeUnmount(() => {
       <section
         v-if="clustersVisible"
         class="landing__clusters"
-        aria-label="Кластеры (заглушка)"
+        aria-label="Кластеры"
       >
         <article
           v-for="(c, idx) in visibleClusters"
