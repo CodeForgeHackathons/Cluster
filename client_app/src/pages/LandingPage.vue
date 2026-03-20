@@ -300,6 +300,7 @@ onBeforeUnmount(() => {
 <template>
   <main
     class="landing"
+    :class="{ 'landing--clusters': clustersVisible }"
     role="application"
     aria-label="Кластер — лендинг"
   >
@@ -408,7 +409,14 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  box-sizing: border-box;
   padding: 22px 18px;
+}
+
+.landing--clusters {
+  /* После появления карточек разрешаем скролл (внутри экрана), чтобы без “дёргания” на первом экране. */
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .landing__bg {
@@ -470,6 +478,8 @@ onBeforeUnmount(() => {
   position: relative;
   z-index: 1;
   color: #ffffff;
+  font-family: var(--heading);
+  font-weight: 700;
   font-size: clamp(22px, 2.9vw, 40px);
   text-align: center;
   line-height: 1.1;
@@ -500,8 +510,8 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding-top: clamp(44px, 7vh, 76px);
+  justify-content: center;
+  padding-top: 0;
   gap: 26px;
 }
 
@@ -556,7 +566,7 @@ onBeforeUnmount(() => {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   padding: 0 8px 8px;
-  margin-top: 12px;
+  margin-top: 0;
   transition:
     opacity 920ms cubic-bezier(0.2, 0.8, 0.2, 1),
     transform 1200ms cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -724,8 +734,8 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(255, 255, 255, 0.34);
   border-radius: 28px;
   cursor: pointer;
-  padding: 22px 18px;
-  min-height: 92px;
+  padding: 30px 18px;
+  min-height: 124px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -836,7 +846,9 @@ onBeforeUnmount(() => {
 .landing__cardLabel {
   position: relative;
   z-index: 1;
-  font-size: 19px;
+  font-family: var(--heading);
+  font-weight: 700;
+  font-size: 21px;
   text-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
   text-align: center;
   line-height: 1.12;
@@ -916,30 +928,50 @@ onBeforeUnmount(() => {
   }
 
   .landing__content {
-    padding-top: 22px;
-    gap: 18px;
+    padding-top: 0;
+    gap: 16px;
   }
 
   .landing__filters {
     grid-template-columns: 1fr;
     gap: 12px;
-    padding-bottom: 6px;
+    padding-bottom: 4px;
   }
 
   .landing__card {
-    min-height: 64px;
-    padding: 14px 14px;
+    min-height: 76px;
+    padding: 16px 14px;
     border-radius: 16px;
   }
 
   .landing__cardLabel {
-    font-size: 15px;
+    font-size: 14px;
   }
 
   .landing__clusters {
     grid-template-columns: 1fr;
     gap: 12px;
     padding-bottom: 8px;
+  }
+}
+
+@media (max-height: 740px) and (min-width: 521px) {
+  .landing__content {
+    gap: 20px;
+  }
+
+  .landing__filters {
+    gap: 14px;
+    padding-bottom: 6px;
+  }
+
+  .landing__card {
+    padding: 24px 18px;
+    min-height: 110px;
+  }
+
+  .landing__cardLabel {
+    font-size: 19px;
   }
 }
 
