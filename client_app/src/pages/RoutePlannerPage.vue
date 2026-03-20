@@ -12,7 +12,43 @@ const emit = defineEmits<{
   (e: 'back'): void
 }>()
 
-const month = ref<number>(new Date().getMonth() + 1)
+function todayISODate(): string {
+  const d = new Date()
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function parseISODateUTC(s: string): Date {
+  const [y, m, d] = s.split('-').map((x) => Number(x))
+  return new Date(Date.UTC(y, m - 1, d))
+}
+
+function formatISODateUTC(dt: Date): string {
+  const yyyy = dt.getUTCFullYear()
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(dt.getUTCDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function addDaysUTC(dt: Date, days: number): Date {
+  const copy = new Date(dt.getTime())
+  copy.setUTCDate(copy.getUTCDate() + days)
+  return copy
+}
+
+const startDate = ref<string>(todayISODate())
+// Оставляем переменную `month` как computed, чтобы не переписывать логику сезонности.
+const month = computed<number>(() => parseISODateUTC(startDate.value).getUTCMonth() + 1)
+
+const endDate = computed<string>(() => {
+  const dt = parseISODateUTC(startDate.value)
+  return formatISODateUTC(addDaysUTC(dt, 2))
+})
+
+const startDateLabel = computed(() => startDate.value)
+const endDateLabel = computed(() => endDate.value)
 const travelerType = ref<TravelerType>('family')
 
 type DaySlot = 'Утро' | 'День' | 'Вечер'
@@ -29,6 +65,110 @@ type DayPlan = {
 const generated = ref(false)
 const days = ref<DayPlan[]>([])
 const overallWhy = ref('')
+
+type WeatherDay = {
+  maxTemp: number
+  minTemp: number
+  precipitationSum: number
+  weatherCode: number
+  isRainy: boolean
+  label: string
+}
+
+const weatherLoading = ref(false)
+const weatherByDay = ref<WeatherDay[]>([])
+const weatherError = ref<string>('')
+
+function weatherLabelFromCode(code: number): { label: string; isRainy: boolean } {
+  // Open-Meteo weather codes:
+  // 0 clear, 1-2 mainly clear/partly cloudy, 3 overcast,
+  // 45 fog, 48 depositing rime fog,
+  // 51-67 drizzle/rain, 71-77 snow, 80-82 rain showers, 85-86 snow showers,
+  // 95 thunderstorm, 96-99 thunderstorm with hail
+  const isRainy =
+    (code >= 51 && code <= 67) ||
+    (code >= 71 && code <= 77) ||
+    (code >= 80 && code <= 82) ||
+    code === 95 ||
+    code === 96 ||
+    code === 99
+
+  const label = (() => {
+    if (code === 0) return 'Ясно'
+    if (code === 1 || code === 2) return 'Облачно с прояснениями'
+    if (code === 3) return 'Пасмурно'
+    if (code === 45 || code === 48) return 'Туман'
+    if (code >= 51 && code <= 57) return 'Морось'
+    if (code >= 58 && code <= 67) return 'Дождь'
+    if (code >= 71 && code <= 77) return 'Снег/снежок'
+    if (code >= 80 && code <= 82) return 'Ливни'
+    if (code >= 85 && code <= 86) return 'Снегопад'
+    if (code >= 95) return 'Гроза'
+    return 'Погода переменчива'
+  })()
+
+  return { label, isRainy }
+}
+
+async function fetchWeather(): Promise<void> {
+  weatherError.value = ''
+  weatherLoading.value = true
+
+  try {
+    const anchor = props.routePlaces[0]?.coordinates ?? { lat: 45.0, lon: 38.0 }
+    const url = new URL('https://api.open-meteo.com/v1/forecast')
+    url.searchParams.set('latitude', String(anchor.lat))
+    url.searchParams.set('longitude', String(anchor.lon))
+    url.searchParams.set(
+      'daily',
+      'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum',
+    )
+    url.searchParams.set('start_date', startDate.value)
+    url.searchParams.set('end_date', endDate.value)
+    url.searchParams.set('timezone', 'Europe/Moscow')
+
+    const res = await fetch(url.toString())
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = (await res.json()) as {
+      daily?: {
+        weather_code?: number[]
+        temperature_2m_max?: number[]
+        temperature_2m_min?: number[]
+        precipitation_sum?: number[]
+        time?: string[]
+      }
+    }
+
+    const daily = data.daily
+    const codes = daily?.weather_code ?? []
+    const maxs = daily?.temperature_2m_max ?? []
+    const mins = daily?.temperature_2m_min ?? []
+    const precs = daily?.precipitation_sum ?? []
+
+    const next: WeatherDay[] = [0, 1, 2].map((i) => {
+      const code = codes[i] ?? 0
+      const maxTemp = maxs[i] ?? 0
+      const minTemp = mins[i] ?? 0
+      const precipitationSum = precs[i] ?? 0
+      const w = weatherLabelFromCode(code)
+      return {
+        maxTemp,
+        minTemp,
+        precipitationSum,
+        weatherCode: code,
+        isRainy: w.isRainy,
+        label: w.label,
+      }
+    })
+
+    weatherByDay.value = next
+  } catch (e) {
+    weatherError.value = 'Погоду временно не удалось загрузить. Продолжим с MVP-эвристикой.'
+    weatherByDay.value = []
+  } finally {
+    weatherLoading.value = false
+  }
+}
 
 // Вау-блок: “дистанционный визит” (витрина на основе сгенерированного плана).
 const vauSelectedIndex = ref(0)
@@ -184,8 +324,9 @@ function whyForPlace(place: Place, dayIndex: number): string {
   return `Выбранное место: “${place.title}”. ${keyHint[key] ?? 'под настроение'} — ${audience}. ${base}. День ${dayIndex + 1}.`
 }
 
-function generate(): void {
+async function generate(): Promise<void> {
   generated.value = true
+  await fetchWeather()
   const places = props.routePlaces ?? []
   const sorted = [...places].sort((a, b) => scorePlace(b) - scorePlace(a))
 
@@ -218,6 +359,12 @@ function logisticsForDay(dayIndex: number): { transport: string; stay: string; f
   const t = travelerType.value
   const dayTone =
     dayIndex === 0 ? 'на старте' : dayIndex === 1 ? 'в основной день' : 'в финальной части'
+  const w = weatherByDay.value[dayIndex]
+  const weatherSuffix = w
+    ? w.isRainy
+      ? `план А/Б: ${w.label} и осадки (${w.precipitationSum} мм) — больше “внутренних” остановок, меньше долгих переходов`
+      : `похоже на удачный день: ${w.label} (осадки ${w.precipitationSum} мм) — больше прогулок`
+    : 'MVP: погода подгрузится после генерации'
 
   const seasonPack = (() => {
     if (season === 'summer') {
@@ -250,21 +397,21 @@ function logisticsForDay(dayIndex: number): { transport: string; stay: string; f
 
   if (t === 'family') {
     return {
-      transport: `${seasonPack.transport}; больше пауз и “безопасных” точек`,
+      transport: `${seasonPack.transport}; ${weatherSuffix}`,
       stay: 'вариант размещения с семейным комфортом и удобной навигацией',
       food: `${seasonPack.food}; учитываем детские форматы и короткие сценарии.`,
     }
   }
   if (t === 'elderly') {
     return {
-      transport: `${seasonPack.transport}; акцент на доступность и тишину`,
+      transport: `${seasonPack.transport}; ${weatherSuffix}`,
       stay: 'размещение ближе к “ядру” кластера, без долгих пересадок',
       food: `${seasonPack.food}; делаем гастро-остановки понятными и без спешки.`,
     }
   }
   if (t === 'digital') {
     return {
-      transport: `${seasonPack.transport}; день разбит на фокус-сессии и окна перемещения`,
+      transport: `${seasonPack.transport}; ${weatherSuffix}`,
       stay: 'ночлег рядом, чтобы проще планировать рабочие блоки',
       food: `${seasonPack.food}; кофе/террасы в сценариях — как опорные точки.`,
     }
@@ -305,26 +452,34 @@ function offerForDay(d: DayPlan): string {
   return offerForPlace(first)
 }
 
+function osmEmbedUrlForPlace(place: Place): string {
+  const { lat, lon } = place.coordinates
+  const d = 0.06
+  const bbox = `${lon - d},${lat - d},${lon + d},${lat + d}`
+  const marker = encodeURIComponent(`${lat},${lon}`)
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${marker}`
+}
+
+function osmLinkUrlForPlace(place: Place): string {
+  const { lat, lon } = place.coordinates
+  return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=11/${lat}/${lon}`
+}
+
+function osmEmbedUrlForDay(d: DayPlan): string {
+  const first = d.places[0]?.place
+  if (!first) return ''
+  return osmEmbedUrlForPlace(first)
+}
+
+function osmLinkUrlForDay(d: DayPlan): string {
+  const first = d.places[0]?.place
+  if (!first) return ''
+  return osmLinkUrlForPlace(first)
+}
+
 const hasPlaces = computed(() => props.routePlaces.length > 0)
 const totalCost = computed(() => props.routePlaces.reduce((sum, p) => sum + p.cost, 0))
 
-function prettyMonth(m: number): string {
-  const labels = [
-    'Январь',
-    'Февраль',
-    'Март',
-    'Апрель',
-    'Май',
-    'Июнь',
-    'Июль',
-    'Август',
-    'Сентябрь',
-    'Октябрь',
-    'Ноябрь',
-    'Декабрь',
-  ]
-  return labels[Math.max(0, Math.min(11, m - 1))] ?? `Месяц ${m}`
-}
 </script>
 
 <template>
@@ -350,13 +505,16 @@ function prettyMonth(m: number): string {
     <section class="planner__content">
       <div class="planner__controls">
         <label class="planner__field">
-          <span class="planner__fieldLabel">Месяц поездки</span>
-          <select v-model="month" class="planner__select" aria-label="Выбор месяца">
-            <option v-for="m in 12" :key="m" :value="m">
-              {{ prettyMonth(m) }}
-            </option>
-          </select>
-          <span class="planner__fieldHint">Сезон: {{ seasonLabel }}</span>
+          <span class="planner__fieldLabel">Даты поездки</span>
+          <input
+            v-model="startDate"
+            class="planner__select"
+            type="date"
+            aria-label="Дата начала поездки"
+          />
+          <span class="planner__fieldHint"
+            >Сезон: {{ seasonLabel }} • Длительность: 3 дня</span
+          >
         </label>
 
         <label class="planner__field">
@@ -390,10 +548,36 @@ function prettyMonth(m: number): string {
       <div v-if="generated" class="planner__result">
         <div class="planner__resultHeader">
           <div class="planner__resultTitle">
-            Результат на {{ prettyMonth(month) }} • {{ travelerLabel(travelerType) }}
+            Результат на {{ startDateLabel }}–{{ endDateLabel }} • {{ travelerLabel(travelerType) }}
           </div>
           <div class="planner__resultWhy">{{ overallWhy }}</div>
         </div>
+
+        <section class="plannerWeather" aria-label="Прогноз погоды">
+          <div class="plannerWeather__title">Погода под ваш план</div>
+          <div class="plannerWeather__row" role="list" aria-label="Прогноз по дням">
+            <div
+              v-for="(w, idx) in weatherByDay"
+              :key="`w-${idx}`"
+              class="plannerWeather__day"
+              role="listitem"
+            >
+              <div class="plannerWeather__dayLabel">День {{ idx + 1 }}</div>
+              <div class="plannerWeather__temps">
+                {{ w.minTemp }}..{{ w.maxTemp }}°C
+              </div>
+              <div class="plannerWeather__desc">
+                {{ w.label }} • осадки {{ w.precipitationSum }} мм
+              </div>
+            </div>
+          </div>
+
+          <div v-if="weatherLoading" class="plannerWeather__status">Загружаем погоду...</div>
+          <div v-else-if="weatherError" class="plannerWeather__status">{{ weatherError }}</div>
+          <div v-else-if="!weatherByDay.length" class="plannerWeather__status">
+            Нажмите “Сгенерировать маршрут”, чтобы подгрузить погоду.
+          </div>
+        </section>
 
         <section v-if="vauItems.length" class="plannerVau" aria-label="Дистанционный визит (вау)">
           <div class="plannerVau__header">Дистанционный визит</div>
@@ -470,6 +654,27 @@ function prettyMonth(m: number): string {
 
               <div v-if="offerForDay(d)" class="plannerDay__offer">
                 {{ offerForDay(d) }}
+              </div>
+
+              <div class="plannerDay__map">
+                <div class="plannerDay__logTitle">Мини-карта</div>
+                <iframe
+                  v-if="osmEmbedUrlForDay(d)"
+                  :src="osmEmbedUrlForDay(d)"
+                  class="plannerDay__mapFrame"
+                  loading="lazy"
+                  referrerpolicy="no-referrer"
+                  aria-label="Мини-карта дня"
+                />
+                <a
+                  v-if="osmLinkUrlForDay(d)"
+                  class="plannerDay__mapLink"
+                  :href="osmLinkUrlForDay(d)"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Открыть в OpenStreetMap
+                </a>
               </div>
             </div>
           </section>
@@ -906,6 +1111,82 @@ function prettyMonth(m: number): string {
   margin-top: 10px;
   font-weight: 1000;
   opacity: 0.95;
+}
+
+.plannerWeather {
+  margin-top: 14px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 14px;
+}
+
+.plannerWeather__title {
+  font-weight: 1000;
+  letter-spacing: 0.2px;
+  margin-bottom: 10px;
+}
+
+.plannerWeather__row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.plannerWeather__day {
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.16);
+  padding: 10px;
+}
+
+.plannerWeather__dayLabel {
+  font-weight: 1000;
+  opacity: 0.95;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.plannerWeather__temps {
+  font-weight: 1000;
+  font-size: 16px;
+}
+
+.plannerWeather__desc {
+  opacity: 0.88;
+  font-size: 12px;
+  line-height: 1.35;
+  margin-top: 6px;
+}
+
+.plannerWeather__status {
+  margin-top: 10px;
+  opacity: 0.9;
+  font-size: 13px;
+}
+
+.plannerDay__map {
+  margin-top: 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.plannerDay__mapFrame {
+  width: 100%;
+  height: 210px;
+  border: 0;
+  display: block;
+}
+
+.plannerDay__mapLink {
+  display: block;
+  padding: 10px 12px;
+  color: rgba(255, 255, 255, 0.95);
+  text-decoration: underline;
+  opacity: 0.9;
+  font-size: 13px;
 }
 
 @media (max-width: 980px) {

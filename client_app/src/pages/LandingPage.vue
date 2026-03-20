@@ -149,10 +149,21 @@ const clusterPhotoSets: Record<string, [string, string, string]> = {
   cl6: [secretImg, calmImg, kidsImg],
 }
 
+// Координаты для мини-карт и погоды (MVP: заглушки).
+const clusterCoords: Record<string, { lat: number; lon: number }> = {
+  cl1: { lat: 43.585, lon: 39.723 }, // побережье (примерно Сочи)
+  cl2: { lat: 45.041, lon: 37.360 }, // природа/озёра (примерно район Краснодара)
+  cl3: { lat: 44.982, lon: 38.917 }, // вид/работа (примерно юг края)
+  cl4: { lat: 44.958, lon: 37.783 }, // вино (примерно Анапа/окрестности)
+  cl5: { lat: 45.025, lon: 37.170 }, // семейный сценарий (примерно Краснодарский район)
+  cl6: { lat: 44.476, lon: 39.016 }, // станица/ремесла (примерно Новороссийск/окрестности)
+}
+
 const clusterById = new Map<string, Cluster>(
   stubClusters.map((c) => {
     const [fact1, fact2, fact3] = factPresets[c.id] ?? ['Впечатления', 'Вдохновение', 'Путешествие']
     const placePhotos = clusterPhotoSets[c.id] ?? [c.image, c.image, c.image]
+    const coords = clusterCoords[c.id] ?? { lat: 45.0, lon: 38.0 }
 
     const baseDescription = `Сценарий “${c.title}”: локальные смыслы, понятная логистика и ощущение “я нашёл(ла) своё место”.`
 
@@ -164,6 +175,7 @@ const clusterById = new Map<string, Cluster>(
         title: c.title,
         location: c.meta,
         fact: fact1,
+        coordinates: coords,
         cost: c.price,
         description: baseDescription,
         reviewsLabel: c.reviews,
@@ -180,6 +192,7 @@ const clusterById = new Map<string, Cluster>(
         title: `${c.title} · мягкий маршрут`,
         location: c.meta,
         fact: fact2,
+        coordinates: coords,
         cost: Math.round(c.price * 0.92),
         description: `${baseDescription} В этом варианте — больше “медленных” остановок и воздуха.`,
         reviewsLabel: c.reviews,
@@ -196,6 +209,7 @@ const clusterById = new Map<string, Cluster>(
         title: `${c.title} · видовые точки`,
         location: c.meta,
         fact: fact3,
+        coordinates: coords,
         cost: Math.round(c.price * 1.04),
         description: `${baseDescription} Добавили “вау”-кадры и небольшие видовые паузы.`,
         reviewsLabel: c.reviews,
