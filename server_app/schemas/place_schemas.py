@@ -10,6 +10,8 @@ from pydantic import AnyUrl, BaseModel, Field, field_validator
 class PlaceBase(BaseModel):
     business_id: int
     name: str = Field(..., min_length=1, max_length=255)
+    # Тип места для фильтрации на фронтенде
+    place_type: Optional[str] = Field(None, max_length=100)
     location: Optional[str] = Field(None, max_length=255)
     interesting_fact: Optional[str] = Field(None, max_length=255)
     ai_link: Optional[AnyUrl] = None
@@ -32,6 +34,8 @@ class PlaceCreate(PlaceBase):
 class PlaceUpdate(BaseModel):
     business_id: Optional[int] = None
     name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+
+    place_type: Optional[str] = Field(default=None, max_length=100)
 
     location: Optional[str] = Field(default=None, max_length=255)
     interesting_fact: Optional[str] = Field(default=None, max_length=255)

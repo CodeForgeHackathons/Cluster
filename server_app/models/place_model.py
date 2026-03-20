@@ -4,81 +4,91 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import AnyUrl, BaseModel, Field, field_validator
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    func,
+)
+from sqlalchemy.orm import Mapped, relationship
+
+from database.session import Base
 
 
-class PlaceBase(BaseModel):
-    business_id: int
-    name: str = Field(..., min_length=1, max_length=255)
-    location: Optional[str] = Field(None, max_length=255)
-    interesting_fact: Optional[str] = Field(None, max_length=255)
-    ai_link: Optional[AnyUrl] = None
+class Place(Base):
+    __tablename__ = "places"
 
-    description_ai: Optional[str] = None
-    description: Optional[str] = None
+    place_id: Mapped[int] = Column(Integer, primary_key=True, index=True)
+    business_id: Mapped[int] = Column(Integer, nullable=False, index=True)
 
-    price: Optional[Decimal] = None
+    name: Mapped[str] = Column(String(255), nullable=False)
+    # Тип места для фильтрации на фронтенде (например: "винодельня", "отель")
+    place_type: Mapped[Optional[str]] = Column(String(100), nullable=True, index=True)
+    location: Mapped[Optional[str]] = Column(String(255), nullable=True)
+    interesting_fact: Mapped[Optional[str]] = Column(String(255), nullable=True)
 
-    @field_validator("interesting_fact", mode="before")
-    @classmethod
-    def validate_interesting_fact(cls, v):  
-        return _validate_two_words(v)
+    ai_link: Mapped[Optional[str]] = Column(String(2048), nullable=True)
 
+    description_ai: Mapped[Optional[str]] = Column(Text, nullable=True)
+    # Модератор при необходимости переписывает поверх AI-описания
+    description: Mapped[Optional[str]] = Column(Text, nullable=True)
 
-class PlaceCreate(PlaceBase):
-    images: List[str] = Field(default_factory=list)
+    price: Mapped[Optional[Decimal]] = Column(Numeric(10, 2), nullable=True)
 
+    created_at: Mapped[datetime] = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
-class PlaceUpdate(BaseModel):
-    business_id: Optional[int] = None
-    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    # Eager loaded в эндпоинтах: joinedload(Place.images) + selectinload(Place.reviews)
+    images: Mapped[List["PlaceImage"]] = relationship(
+        "PlaceImage",
+        back_populates="place",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    reviews: Mapped[List["PlaceReview"]] = relationship(
+        "PlaceReview",
+        back_populates="place",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
-    location: Optional[str] = Field(default=None, max_length=255)
-    interesting_fact: Optional[str] = Field(default=None, max_length=255)
-    ai_link: Optional[AnyUrl] = None
-
-    description_ai: Optional[str] = None
-    description: Optional[str] = None
-    price: Optional[Decimal] = None
-
-    images: Optional[List[str]] = None
-
-    @field_validator("interesting_fact", mode="before")
-    @classmethod
-    def validate_interesting_fact(cls, v): 
-        return _validate_two_words(v)
-
-
-class PlaceResponse(PlaceBase):
-    place_id: int
-    created_at: datetime
-
-    images: List[str] = Field(default_factory=list)
-    rating: float = 0.0
-
-    class Config:
-        from_attributes = True
+    @property
+    def rating(self) -> float:
+        """Средний рейтинг по отзывам. (В текущих эндпоинтах считается отдельно.)"""
+        if not self.reviews:
+            return 0.0
+        return float(sum(r.rating for r in self.reviews)) / float(len(self.reviews))
 
 
-class PlaceReviewResponse(BaseModel):
-    tourist_id: int
-    rating: int = Field(ge=1, le=5)
-    comment: Optional[str] = None
-    created_at: datetime
+class PlaceImage(Base):
+    __tablename__ = "place_images"
 
-    class Config:
-        from_attributes = True
+    place_image_id: Mapped[int] = Column(Integer, primary_key=True, index=True)
+    place_id: Mapped[int] = Column(Integer, ForeignKey("places.place_id"), nullable=False, index=True)
 
+    image_url: Mapped[str] = Column(String(2048), nullable=False)
 
-class PlaceDetailResponse(PlaceResponse):
-    # В детальной карточке показываем отзывы
-    reviews: List[PlaceReviewResponse] = Field(default_factory=list)
+    created_at: Mapped[datetime] = Column(DateTime, server_default=func.now(), nullable=False)
+
+    place: Mapped["Place"] = relationship("Place", back_populates="images")
 
 
-def _validate_two_words(value: Optional[str]) -> Optional[str]:
-    if value is None:
-        return value
-    words = [w for w in value.strip().split(" ") if w]
-    if len(words) != 2:
-        raise ValueError("Интересный факт должен содержать ровно 2 слова")
-    return value
+class PlaceReview(Base):
+    __tablename__ = "place_reviews"
+
+    place_review_id: Mapped[int] = Column(Integer, primary_key=True, index=True)
+    place_id: Mapped[int] = Column(Integer, ForeignKey("places.place_id"), nullable=False, index=True)
+    tourist_id: Mapped[int] = Column(
+        Integer, ForeignKey("tourist_users.id"), nullable=False, index=True
+    )
+
+    rating: Mapped[int] = Column(Integer, nullable=False)
+    comment: Mapped[Optional[str]] = Column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = Column(DateTime, server_default=func.now(), nullable=False)
+
+    place: Mapped["Place"] = relationship("Place", back_populates="reviews")

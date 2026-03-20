@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from api.deps import get_db
@@ -43,6 +43,7 @@ def _place_to_detail(place: Place) -> PlaceDetailResponse:
         place_id=place.place_id,
         business_id=place.business_id,
         name=place.name,
+        place_type=place.place_type,
         location=place.location,
         interesting_fact=place.interesting_fact,
         ai_link=place.ai_link,
@@ -61,6 +62,7 @@ def create_place(payload: PlaceCreate, db: Session = Depends(get_db)) -> PlaceDe
     place = Place(
         business_id=payload.business_id,
         name=payload.name,
+        place_type=payload.place_type,
         location=payload.location,
         interesting_fact=payload.interesting_fact,
         ai_link=str(payload.ai_link) if payload.ai_link is not None else None,
@@ -102,6 +104,8 @@ def update_place(
         place.business_id = payload.business_id
     if payload.name is not None:
         place.name = payload.name
+    if payload.place_type is not None:
+        place.place_type = payload.place_type
     if payload.location is not None:
         place.location = payload.location
     if payload.interesting_fact is not None:
@@ -128,12 +132,32 @@ def update_place(
 
 
 @router.get("", response_model=List[PlaceResponse])
-def list_places(db: Session = Depends(get_db)) -> List[PlaceResponse]:
+def list_places(
+    q: Optional[str] = Query(default=None, description="Поиск по названию/локации/факту"),
+    place_type: Optional[str] = Query(default=None, alias="type", description="Фильтр по типу места"),
+    db: Session = Depends(get_db),
+) -> List[PlaceResponse]:
     stmt = (
         select(Place)
         .order_by(Place.created_at.desc())
         .options(joinedload(Place.images), selectinload(Place.reviews))
     )
+
+    if q:
+        q_like = f"%{q.strip()}%"
+        stmt = stmt.where(
+            or_(
+                Place.name.ilike(q_like),
+                Place.location.ilike(q_like),
+                Place.interesting_fact.ilike(q_like),
+                Place.description_ai.ilike(q_like),
+                Place.description.ilike(q_like),
+            )
+        )
+
+    if place_type:
+        stmt = stmt.where(func.lower(Place.place_type) == place_type.strip().lower())
+
     places = db.execute(stmt).scalars().all()
 
     return [
@@ -141,6 +165,7 @@ def list_places(db: Session = Depends(get_db)) -> List[PlaceResponse]:
             place_id=p.place_id,
             business_id=p.business_id,
             name=p.name,
+            place_type=p.place_type,
             location=p.location,
             interesting_fact=p.interesting_fact,
             ai_link=p.ai_link,
