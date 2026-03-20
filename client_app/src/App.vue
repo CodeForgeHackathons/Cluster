@@ -130,7 +130,7 @@ function togglePlaceInRoute(place: Place): void {
 
         <div class="routeDrawer__footer">
           <div class="routeDrawer__footerRow">
-            <div class="routeDrawer__hint">MVP: маршрут не отправляется, только планируется.</div>
+            <div class="routeDrawer__hint">Выберите места и соберите маршрут.</div>
             <button
               type="button"
               class="routeDrawer__planBtn"

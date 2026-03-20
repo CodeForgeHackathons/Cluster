@@ -83,7 +83,7 @@ function reviewStars(r: Review): string {
 
       <div class="cluster__headerTitle">
         <div class="cluster__title">{{ cluster.title }}</div>
-        <div class="cluster__subtitle">Измерение впечатлений (MVP)</div>
+        <div class="cluster__subtitle">Подбор впечатлений</div>
       </div>
 
       <div class="cluster__headerMeta">
@@ -183,9 +183,7 @@ function reviewStars(r: Review): string {
                   : 'Добавить в маршрут'
               }}
             </button>
-            <div class="clusterCard__hint">
-              MVP: маршрут собирается на клиенте.
-            </div>
+            <div class="clusterCard__hint">Добавляйте места в маршрут.</div>
           </div>
         </div>
       </article>

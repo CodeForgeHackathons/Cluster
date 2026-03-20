@@ -285,7 +285,7 @@ def generate_itinerary(
     season_adj = SEASON_LABELS.get(season, season)
     traveler_label = TRAVELER_LABELS.get(traveler_type, traveler_type)
     overall_why = (
-        f"ИИ-куратор (MVP): для {traveler_label} в {season_adj} период мы распределили места по дням "
+        f"ИИ-куратор: для {traveler_label} в {season_adj} период мы распределили места по дням "
         "так, чтобы сохранить темп, логичность и «вау»-атмосферу."
     )
 

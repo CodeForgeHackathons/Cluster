@@ -167,7 +167,7 @@ async function fetchWeather(): Promise<void> {
 
     weatherByDay.value = next
   } catch (e) {
-    weatherError.value = 'Погоду временно не удалось загрузить. Продолжим с MVP-эвристикой.'
+    weatherError.value = 'Погоду временно не удалось загрузить.'
     weatherByDay.value = []
   } finally {
     weatherLoading.value = false
@@ -490,7 +490,7 @@ function _unusedLocalFallback_REMOVED() {
   days.value = dayBuckets
 
   const season = monthToSeason(month.value)
-  overallWhy.value = `ИИ-куратор (MVP): для ${travelerLabel(travelerType.value)} в ${season === 'winter' ? 'зимний' : season === 'spring' ? 'весенний' : season === 'summer' ? 'летний' : 'осенний'} период мы распределили места по дням так, чтобы сохранить темп, логичность и “вау”-атмосферу.`
+  overallWhy.value = `ИИ-куратор: для ${travelerLabel(travelerType.value)} в ${season === 'winter' ? 'зимний' : season === 'spring' ? 'весенний' : season === 'summer' ? 'летний' : 'осенний'} период мы распределили места по дням так, чтобы сохранить темп, логичность и “вау”-атмосферу.`
 
   // Всегда начинаем “виртуальный визит” с первого пункта плана.
   vauSelectedIndex.value = 0
@@ -506,7 +506,7 @@ function logisticsForDay(dayIndex: number): { transport: string; stay: string; f
     ? w.isRainy
       ? `план А/Б: ${w.label} и осадки (${w.precipitationSum} мм) — больше “внутренних” остановок, меньше долгих переходов`
       : `похоже на удачный день: ${w.label} (осадки ${w.precipitationSum} мм) — больше прогулок`
-    : 'MVP: погода подгрузится после генерации'
+    : 'Погода загрузится после генерации'
 
   const seasonPack = (() => {
     if (season === 'summer') {
@@ -682,7 +682,7 @@ const totalCost = computed(() => props.routePlaces.reduce((sum, p) => sum + p.co
             {{ generateLoading ? 'Генерация...' : 'Сгенерировать маршрут' }}
           </button>
           <div v-if="!hasPlaces" class="planner__actionsHint">
-            Без выбранных мест — поиск в БД по предпочтениям (DeepSeek embeddings).
+            Без выбранных мест — автоматический подбор по предпочтениям.
           </div>
         </div>
       </div>
@@ -824,7 +824,7 @@ const totalCost = computed(() => props.routePlaces.reduce((sum, p) => sum + p.co
         </div>
 
         <div class="planner__mapHint">
-          MVP: “карта-таймлайн” пока в виде витрины. На следующей итерации подключим OSM/Leaflet и проложим маршрут по точкам.
+          Карта показывает ключевые точки дня.
         </div>
       </div>
     </section>
