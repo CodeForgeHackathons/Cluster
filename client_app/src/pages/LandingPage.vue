@@ -432,8 +432,8 @@ function resetToInitial(): void {
 }
 
 .landing__backBtn:hover {
-  border-color: rgba(170, 59, 255, 0.65);
-  background: rgba(170, 59, 255, 0.12);
+  border-color: rgba(0, 194, 255, 0.75);
+  background: rgba(0, 194, 255, 0.12);
 }
 
 .landing__backIcon {
@@ -731,7 +731,7 @@ function resetToInitial(): void {
 
 .landing__card:hover {
   transform: scale(1.06);
-  border-color: rgba(170, 59, 255, 0.78);
+  border-color: rgba(0, 194, 255, 0.75);
   box-shadow:
     0 28px 90px rgba(0, 0, 0, 0.36),
     inset 0 1px 0 rgba(255, 255, 255, 0.22);
@@ -741,7 +741,7 @@ function resetToInitial(): void {
   background:
     linear-gradient(
       180deg,
-      rgba(170, 59, 255, 0.22) 0%,
+      rgba(0, 194, 255, 0.20) 0%,
       rgba(0, 0, 0, 0.18) 45%,
       rgba(0, 0, 0, 0.45) 100%
     );
@@ -754,7 +754,7 @@ function resetToInitial(): void {
 
 .landing__card--active {
   transform: scale(1.08);
-  border-color: rgba(170, 59, 255, 0.86);
+  border-color: rgba(0, 194, 255, 0.9);
   box-shadow:
     0 32px 100px rgba(0, 0, 0, 0.42),
     inset 0 1px 0 rgba(255, 255, 255, 0.26);
@@ -771,14 +771,14 @@ function resetToInitial(): void {
     ),
     linear-gradient(
       180deg,
-      rgba(170, 59, 255, 0.22) 0%,
+      rgba(0, 194, 255, 0.20) 0%,
       rgba(0, 0, 0, 0.14) 42%,
       rgba(0, 0, 0, 0.54) 100%
     );
 }
 
 .landing__card:focus-visible {
-  outline: 2px solid rgba(170, 59, 255, 0.85);
+  outline: 2px solid rgba(0, 194, 255, 0.9);
   outline-offset: 3px;
 }
 
