@@ -138,16 +138,28 @@ const factPresets: Record<string, [string, string, string]> = {
   cl6: ['Тайные мастерские', 'Дела руками', 'Фото без толпы'],
 }
 
+// В MVP данных о фото нет: поэтому используем разные уже существующие картинки
+// (по 3 на кластер), чтобы в галерее было “много” изображений.
+const clusterPhotoSets: Record<string, [string, string, string]> = {
+  cl1: [seaImg, calmImg, wineImg],
+  cl2: [calmImg, seaImg, viewImg],
+  cl3: [viewImg, calmImg, seaImg],
+  cl4: [wineImg, secretImg, calmImg],
+  cl5: [kidsImg, seaImg, viewImg],
+  cl6: [secretImg, calmImg, kidsImg],
+}
+
 const clusterById = new Map<string, Cluster>(
   stubClusters.map((c) => {
     const [fact1, fact2, fact3] = factPresets[c.id] ?? ['Впечатления', 'Вдохновение', 'Путешествие']
+    const placePhotos = clusterPhotoSets[c.id] ?? [c.image, c.image, c.image]
 
     const baseDescription = `Сценарий “${c.title}”: локальные смыслы, понятная логистика и ощущение “я нашёл(ла) своё место”.`
 
     const places = [
       {
         id: `${c.id}-p1`,
-        photo: c.image,
+        photo: placePhotos[0]!,
         rating: c.rating,
         title: c.title,
         location: c.meta,
@@ -163,7 +175,7 @@ const clusterById = new Map<string, Cluster>(
       },
       {
         id: `${c.id}-p2`,
-        photo: c.image,
+        photo: placePhotos[1]!,
         rating: Math.max(4.5, c.rating - 0.2),
         title: `${c.title} · мягкий маршрут`,
         location: c.meta,
@@ -179,7 +191,7 @@ const clusterById = new Map<string, Cluster>(
       },
       {
         id: `${c.id}-p3`,
-        photo: c.image,
+        photo: placePhotos[2]!,
         rating: Math.max(4.5, c.rating - 0.1),
         title: `${c.title} · видовые точки`,
         location: c.meta,
@@ -210,6 +222,31 @@ function openClusterById(id: string): void {
   const cluster = clusterById.get(id)
   if (!cluster) return
   emit('openCluster', cluster)
+}
+
+// Галерея фото внутри карточек кластеров (MVP: локальные заглушки).
+const isGalleryOpen = ref(false)
+const galleryClusterTitle = ref('')
+const galleryImages = ref<string[]>([])
+const galleryActiveIndex = ref(0)
+
+function openClusterGallery(id: string): void {
+  const cluster = clusterById.get(id)
+  if (!cluster) return
+
+  galleryClusterTitle.value = cluster.title
+  galleryImages.value = cluster.places.map((p) => p.photo)
+  galleryActiveIndex.value = 0
+  isGalleryOpen.value = true
+}
+
+function closeClusterGallery(): void {
+  isGalleryOpen.value = false
+}
+
+function selectGalleryImage(idx: number): void {
+  if (idx < 0 || idx >= galleryImages.value.length) return
+  galleryActiveIndex.value = idx
 }
 
 const defaultBgUrl = filters[0]!.bgImage
@@ -285,6 +322,7 @@ function resetToInitial(): void {
   isBgBlurring.value = false
   isBgFading.value = false
   clustersVisible.value = false
+  isGalleryOpen.value = false
 
   currentBgUrl.value = defaultBgUrl
   nextBgUrl.value = defaultBgUrl
@@ -393,9 +431,62 @@ onBeforeUnmount(() => {
             <div class="landing__clusterTitle">{{ c.title }}</div>
             <div class="landing__clusterMeta">{{ c.meta }}</div>
             <div class="landing__clusterPrice">{{ c.price }} ₽</div>
+            <div class="landing__clusterActions">
+              <button
+                type="button"
+                class="landing__clusterGalleryBtn"
+                aria-label="Просмотреть фото кластера"
+                @click.stop="openClusterGallery(c.id)"
+              >
+                Просмотреть фото
+              </button>
+            </div>
           </div>
         </article>
       </section>
+
+      <div
+        v-if="isGalleryOpen"
+        class="galleryOverlay"
+        role="dialog"
+        aria-modal="true"
+        tabindex="0"
+        @click="closeClusterGallery"
+        @keydown.esc="closeClusterGallery"
+      >
+        <div class="galleryModal" @click.stop>
+          <div class="galleryHeader">
+            <div class="galleryTitle">{{ galleryClusterTitle }}</div>
+            <button type="button" class="galleryCloseBtn" aria-label="Закрыть" @click="closeClusterGallery">
+              ✕
+            </button>
+          </div>
+
+          <div class="galleryMain">
+            <img
+              v-if="galleryImages.length"
+              :src="galleryImages[galleryActiveIndex]"
+              class="galleryMainImg"
+              alt="Фото кластера"
+            />
+          </div>
+
+          <div class="galleryThumbs" role="list" aria-label="Миниатюры">
+            <button
+              v-for="(img, idx) in galleryImages"
+              :key="img + idx"
+              type="button"
+              class="galleryThumb"
+              :class="{ 'galleryThumb--active': idx === galleryActiveIndex }"
+              role="listitem"
+              :aria-label="`Фото ${idx + 1}`"
+              @click="selectGalleryImage(idx)"
+            >
+              <img :src="img" class="galleryThumbImg" :alt="`Фото ${idx + 1}`" />
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 </template>
@@ -973,6 +1064,123 @@ onBeforeUnmount(() => {
   .landing__cardLabel {
     font-size: 19px;
   }
+}
+
+.landing__clusterActions {
+  padding-top: 10px;
+}
+
+.landing__clusterGalleryBtn {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.22);
+  color: rgba(255, 255, 255, 0.98);
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-weight: 900;
+  letter-spacing: 0.15px;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+.landing__clusterGalleryBtn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0, 194, 255, 0.6);
+  background: rgba(0, 194, 255, 0.14);
+}
+
+.galleryOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.galleryModal {
+  width: min(920px, 100%);
+  max-height: 86vh;
+  overflow: auto;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(18, 18, 26, 0.78);
+  box-shadow: 0 40px 160px rgba(0, 0, 0, 0.65);
+}
+
+.galleryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.galleryTitle {
+  font-weight: 1000;
+  letter-spacing: 0.2px;
+  color: rgba(255, 255, 255, 0.98);
+}
+
+.galleryCloseBtn {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.96);
+  border-radius: 12px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.galleryMain {
+  padding: 12px 16px 10px;
+}
+
+.galleryMainImg {
+  width: 100%;
+  height: min(440px, 52vh);
+  object-fit: cover;
+  display: block;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.galleryThumbs {
+  display: flex;
+  gap: 10px;
+  padding: 10px 16px 16px;
+  overflow: auto;
+}
+
+.galleryThumb {
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+  padding: 6px;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+.galleryThumb:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0, 194, 255, 0.45);
+}
+
+.galleryThumb--active {
+  border-color: rgba(0, 194, 255, 0.85);
+  background: rgba(0, 194, 255, 0.12);
+}
+
+.galleryThumbImg {
+  width: 96px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 10px;
+  display: block;
 }
 
 @keyframes backBtnIn {
