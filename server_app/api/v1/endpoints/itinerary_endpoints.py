@@ -58,6 +58,11 @@ KEY_HINTS: dict[str, str] = {
     "cl6": "сделали маршрут менее «толповым»",
 }
 
+def _pick_variant(options: List[str], seed: int) -> str:
+    if not options:
+        return ""
+    return options[abs(seed) % len(options)]
+
 
 def _place_to_candidate(place) -> CandidateInput:
     """Конвертирует Place (ORM) в CandidateInput."""
@@ -155,6 +160,7 @@ def _score_candidate(c: CandidateInput, traveler_type: str, month: int) -> float
 def _why_for_place(c: CandidateInput, day_index: int, traveler_type: str, month: int) -> str:
     season = _month_to_season(month)
     key = _cluster_key(c)
+    seed = day_index + len(c.title) + int(c.cost or 0)
 
     base = {
         "summer": "в тёплый сезон особенно приятно гулять без спешки",
@@ -173,7 +179,22 @@ def _why_for_place(c: CandidateInput, day_index: int, traveler_type: str, month:
     }.get(traveler_type, "под настроение")
 
     hint = KEY_HINTS.get(key, "под настроение")
-    return f'Выбранное место: «{c.title}». {hint} — {audience}. {base}. День {day_index + 1}.'
+    fact_text = f"Факт: {c.fact}." if c.fact else ""
+    desc_snippet = ""
+    if c.description:
+        first_sentence = c.description.split(".")[0].strip()
+        if first_sentence:
+            desc_snippet = f" {first_sentence}."
+
+    intro = _pick_variant(
+        [
+            f"Выбранное место: «{c.title}».",
+            f"Для дня {day_index + 1} выбрали «{c.title}».",
+            f"Опорная точка дня {day_index + 1}: «{c.title}».",
+        ],
+        seed,
+    )
+    return f"{intro} {hint} — {audience}. {base}. {fact_text}{desc_snippet}".strip()
 
 
 def _logistics_notes(
@@ -183,14 +204,42 @@ def _logistics_notes(
     traveler_type: str,
     month: int,
 ) -> str:
+    seed = day_index + len(c.title) + int(c.cost or 0)
     parts: List[str] = []
     if weather:
         if weather.isRainy:
             indoor = c.indoorOptions[:2] if c.indoorOptions else ["помещение рядом"]
-            parts.append(f"При дожде ({weather.weatherLabel}, {weather.precipitationSum} мм): {', '.join(indoor)}.")
+            rain_variants = [
+                f"При дожде ({weather.weatherLabel}, {weather.precipitationSum} мм): {', '.join(indoor)}.",
+                f"Погода с осадками ({weather.weatherLabel}): делаем упор на {', '.join(indoor)}.",
+                f"На случай осадков ({weather.precipitationSum} мм) планируем больше времени в формате: {', '.join(indoor)}.",
+            ]
+            parts.append(_pick_variant(rain_variants, seed))
         else:
             outdoor = c.outdoorOptions[:2] if c.outdoorOptions else ["прогулки"]
-            parts.append(f"Погода {weather.weatherLabel}: {', '.join(outdoor)}.")
+            dry_variants = [
+                f"Погода {weather.weatherLabel}: {', '.join(outdoor)}.",
+                f"Без сильных осадков — комфортно идти через {', '.join(outdoor)}.",
+                f"Условия дня ({weather.weatherLabel}) подходят для формата: {', '.join(outdoor)}.",
+            ]
+            parts.append(_pick_variant(dry_variants, seed))
+
+    if c.location:
+        location_variants = [
+            f"Район: {c.location}.",
+            f"Опорная локация дня: {c.location}.",
+            f"Маршрут строим вокруг точки «{c.location}».",
+        ]
+        parts.append(_pick_variant(location_variants, seed + 3))
+
+    if c.cost:
+        budget_variants = [
+            f"Ориентир по бюджету точки: {round(c.cost)} ₽.",
+            f"Планируем расходы дня с опорой на бюджет {round(c.cost)} ₽.",
+            f"Бюджетная метка по месту: {round(c.cost)} ₽.",
+        ]
+        parts.append(_pick_variant(budget_variants, seed + 7))
+
     if c.suitabilityFlags and c.suitabilityFlags.accessibilityNotes:
         parts.append(c.suitabilityFlags.accessibilityNotes)
     return " ".join(parts) if parts else "Обычная логистика."

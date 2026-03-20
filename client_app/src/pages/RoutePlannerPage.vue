@@ -496,12 +496,24 @@ function _unusedLocalFallback_REMOVED() {
   vauSelectedIndex.value = 0
 }
 
-function logisticsForDay(dayIndex: number): { transport: string; stay: string; food: string } {
+function logisticsForDay(day: DayPlan): { transport: string; stay: string; food: string } {
+  const dayIndex = day.dayIndex
   const season = monthToSeason(month.value)
   const t = travelerType.value
+  const places = day.places.map((x) => x.place)
+  const mainPlace = places[0]
+  const mainKey = mainPlace?.id.split('-')[0] ?? 'general'
+  const clusterKeys = Array.from(new Set(places.map((p) => p.id.split('-')[0] ?? '')))
+  const clusterHint = clusterKeys.length > 1 ? 'сбалансировали разные типы локаций' : 'держим единый ритм дня'
   const dayTone =
     dayIndex === 0 ? 'на старте' : dayIndex === 1 ? 'в основной день' : 'в финальной части'
   const w = weatherByDay.value[dayIndex]
+  const variantSeed =
+    dayIndex +
+    (mainPlace?.title.length ?? 0) +
+    Math.round((w?.precipitationSum ?? 0) * 10) +
+    (w?.weatherCode ?? 0)
+  const pick = (arr: string[]) => arr[Math.abs(variantSeed) % arr.length] ?? arr[0] ?? ''
   const weatherSuffix = w
     ? w.isRainy
       ? `план А/Б: ${w.label} и осадки (${w.precipitationSum} мм) — больше “внутренних” остановок, меньше долгих переходов`
@@ -537,29 +549,58 @@ function logisticsForDay(dayIndex: number): { transport: string; stay: string; f
     }
   })()
 
+  const transportVariants = [
+    `${seasonPack.transport}; ${weatherSuffix}; ${clusterHint}.`,
+    `${weatherSuffix}; ${seasonPack.transport}; ${clusterHint}.`,
+    `${seasonPack.transport}. ${clusterHint}; ${weatherSuffix}.`,
+  ]
+
+  const stayByCluster: Record<string, string[]> = {
+    cl1: ['ближе к набережной', 'в районе моря и вечерних маршрутов'],
+    cl2: ['в тихой зоне у природы', 'рядом с прогулочными зонами'],
+    cl3: ['в точке с удобным ритмом дня', 'рядом с рабочими и обзорными локациями'],
+    cl4: ['рядом с дегустационными точками', 'в локации с короткими переездами между винными объектами'],
+    cl5: ['в семейно-спокойной зоне', 'рядом с локациями без долгих переходов'],
+    cl6: ['в спокойном районе без толпы', 'рядом с ремесленными точками'],
+    general: ['рядом с ключевыми локациями дня', 'в зоне с удобной логистикой'],
+  }
+  const stayHint = pick(stayByCluster[mainKey] ?? stayByCluster.general)
+
+  const foodBySeason: Record<string, string[]> = {
+    spring: ['сезонные локальные продукты и лёгкое меню', 'рынки и фермерские точки без спешки'],
+    summer: ['лёгкие блюда и прохладные остановки', 'гастро-точки с короткими паузами между прогулками'],
+    autumn: ['сезонные блюда и тёплые гастро-остановки', 'локальная кухня с акцентом на атмосферу'],
+    winter: ['тёплые форматы и уютные точки питания', 'комфортные остановки в помещении'],
+  }
+  const foodBase = pick(foodBySeason[season] ?? foodBySeason.spring)
+
   if (t === 'family') {
     return {
-      transport: `${seasonPack.transport}; ${weatherSuffix}`,
-      stay: 'вариант размещения с семейным комфортом и удобной навигацией',
-      food: `${seasonPack.food}; учитываем детские форматы и короткие сценарии.`,
+      transport: pick(transportVariants),
+      stay: `семейное размещение ${stayHint}${mainPlace ? `, опорная точка — «${mainPlace.title}»` : ''}.`,
+      food: `${foodBase}; учитываем детские форматы и короткие сценарии${mainPlace ? ` вокруг «${mainPlace.title}»` : ''}.`,
     }
   }
   if (t === 'elderly') {
     return {
-      transport: `${seasonPack.transport}; ${weatherSuffix}`,
-      stay: 'размещение ближе к “ядру” кластера, без долгих пересадок',
-      food: `${seasonPack.food}; делаем гастро-остановки понятными и без спешки.`,
+      transport: pick(transportVariants),
+      stay: `размещение ${stayHint}${mainPlace ? `, ядро дня — «${mainPlace.title}»` : ''}, без долгих пересадок.`,
+      food: `${foodBase}; делаем остановки понятными и без спешки.`,
     }
   }
   if (t === 'digital') {
     return {
-      transport: `${seasonPack.transport}; ${weatherSuffix}`,
-      stay: 'ночлег рядом, чтобы проще планировать рабочие блоки',
-      food: `${seasonPack.food}; кофе/террасы в сценариях — как опорные точки.`,
+      transport: pick(transportVariants),
+      stay: `ночлег ${stayHint}${mainPlace ? `, ключевая точка — «${mainPlace.title}»` : ''}, чтобы проще планировать рабочие блоки.`,
+      food: `${foodBase}; кофе/террасы используем как опорные точки.`,
     }
   }
 
-  return seasonPack
+  return {
+    transport: pick(transportVariants),
+    stay: `${pick([seasonPack.stay, `размещение ${stayHint}`])}${mainPlace ? ` Опорная точка: «${mainPlace.title}».` : ''}`,
+    food: `${foodBase}${mainPlace ? ` Ближе к району «${mainPlace.location}».` : ''}`,
+  }
 }
 
 function offerForPlace(place: Place): string {
@@ -784,15 +825,15 @@ const totalCost = computed(() => props.routePlaces.reduce((sum, p) => sum + p.co
               <div class="plannerDay__logTitle">Логистика дня</div>
               <div class="plannerDay__logLine">
                 <span class="plannerDay__logKey">Транспорт:</span>
-                <span class="plannerDay__logVal">{{ logisticsForDay(d.dayIndex).transport }}</span>
+                <span class="plannerDay__logVal">{{ logisticsForDay(d).transport }}</span>
               </div>
               <div class="plannerDay__logLine">
                 <span class="plannerDay__logKey">Ночлег:</span>
-                <span class="plannerDay__logVal">{{ logisticsForDay(d.dayIndex).stay }}</span>
+                <span class="plannerDay__logVal">{{ logisticsForDay(d).stay }}</span>
               </div>
               <div class="plannerDay__logLine">
                 <span class="plannerDay__logKey">Питание:</span>
-                <span class="plannerDay__logVal">{{ logisticsForDay(d.dayIndex).food }}</span>
+                <span class="plannerDay__logVal">{{ logisticsForDay(d).food }}</span>
               </div>
 
               <div v-if="offerForDay(d)" class="plannerDay__offer">
