@@ -888,6 +888,104 @@ onMounted(async () => {
   gap: 10px;
 }
 
+@media (min-width: 2560px) {
+  .partnerCabinet {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+  
+  .partnerCabinet__header {
+    padding: 0 0 32px;
+  }
+  
+  .partnerCabinet__title {
+    font-size: 48px;
+    margin-bottom: 24px;
+  }
+  
+  .partnerCabinet__subtitle {
+    font-size: 24px;
+    margin-bottom: 32px;
+  }
+  
+  .partnerCabinet__content {
+    gap: 32px;
+  }
+  
+  .partnerCabinet__section {
+    padding: 32px;
+  }
+  
+  .partnerCabinet__sectionTitle {
+    font-size: 28px;
+    margin-bottom: 24px;
+  }
+  
+  .partnerCabinet__places {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  
+  .partnerPlace {
+    padding: 24px;
+  }
+  
+  .partnerPlace__img {
+    width: 80px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: 10px;
+    margin-bottom: 16px;
+  }
+  
+  .partnerPlace__name {
+    font-size: 18px;
+  }
+  
+  .partnerPlace__meta {
+    font-size: 14px;
+  }
+  
+  .partnerPlace__price {
+    font-size: 15px;
+  }
+  
+  .placeDetailCard {
+    padding: 24px;
+  }
+  
+  .placeDetailCard__title {
+    font-size: 24px;
+  }
+  
+  .placeDetailCard__desc {
+    font-size: 16px;
+  }
+  
+  .placeDetailCard__fact {
+    font-size: 15px;
+  }
+  
+  .createPlaceCard {
+    padding: 24px;
+  }
+  
+  .createPlaceCard__title {
+    font-size: 20px;
+  }
+  
+  .createInput {
+    padding: 16px;
+    font-size: 16px;
+  }
+  
+  .createPlaceCard__actions {
+    margin-top: 16px;
+    gap: 12px;
+  }
+}
+
 @media (max-width: 980px) {
   .partnerCabinet {
     padding: 20px 16px;

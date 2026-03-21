@@ -1133,6 +1133,85 @@ onBeforeUnmount(() => {
   outline-offset: 3px;
 }
 
+@media (min-width: 2560px) {
+  .landing {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 48px 32px;
+  }
+  
+  .landing__content {
+    gap: 48px;
+  }
+  
+  .landing__header {
+    padding: 0 0 48px;
+  }
+  
+  .landing__title {
+    font-size: 64px;
+    margin-bottom: 24px;
+  }
+  
+  .landing__subtitle {
+    font-size: 24px;
+    margin-bottom: 32px;
+  }
+  
+  .landing__filters {
+    gap: 24px;
+    padding-bottom: 16px;
+  }
+  
+  .landing__card {
+    min-height: 120px;
+    padding: 24px 20px;
+    border-radius: 24px;
+  }
+  
+  .landing__cardLabel {
+    font-size: 22px;
+  }
+  
+  .landing__clusters {
+    gap: 24px;
+    padding: 0 8px 16px;
+  }
+  
+  .landing__clusterCard {
+    border-radius: 28px;
+  }
+  
+  .landing__clusterImgWrap {
+    aspect-ratio: 16 / 9;
+  }
+  
+  .landing__clusterBody {
+    padding: 20px 24px 28px;
+  }
+  
+  .landing__clusterTop {
+    margin-bottom: 12px;
+  }
+  
+  .landing__clusterRating {
+    font-size: 18px;
+  }
+  
+  .landing__clusterReviews {
+    font-size: 14px;
+  }
+  
+  .landing__clusterTitle {
+    font-size: 22px;
+    margin-bottom: 10px;
+  }
+  
+  .landing__clusterDesc {
+    font-size: 16px;
+  }
+}
+
 @media (max-width: 980px) {
   .landing__filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
