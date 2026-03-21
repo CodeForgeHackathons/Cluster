@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import seaImg from '../assets/kk/пляж.jfif'
 import wineImg from '../assets/kk/винодельня.jfif'
 import kidsImg from '../assets/kk/дети.png'
@@ -18,46 +18,51 @@ const emit = defineEmits<{
 type Filter = {
   id: string
   label: string
-  bgImage: string // фото для фона лендинга (при наведении)
-  cardImage: string // фото внутри карточки
+  description: string
+  bgImage: string
+  cardImage: string
 }
 
-// TODO: когда добавите реальные фото Краснодарского края,
-// замените поля `bgImage`/`cardImage` на импорты из `src/assets/kk/`.
 const filters: Filter[] = [
   {
     id: 'run',
     label: 'Сбежать от людей',
+    description: 'Уединённые места и тишина',
     bgImage: seaImg,
     cardImage: seaImg,
   },
   {
     id: 'taste',
     label: 'Почувствовать вкус',
+    description: 'Вино, еда и локальные продукты',
     bgImage: wineImg,
     cardImage: wineImg,
   },
   {
     id: 'kids',
     label: 'Легко с детьми',
+    description: 'Семейный отдых без хлопот',
     bgImage: kidsImg,
     cardImage: kidsImg,
   },
   {
     id: 'view',
     label: 'Работа с видом',
+    description: 'Коворкинги и видовые точки',
     bgImage: viewImg,
     cardImage: viewImg,
   },
   {
     id: 'calm',
     label: 'Размеренно и душевно',
+    description: 'Спокойный темп и природа',
     bgImage: calmImg,
     cardImage: calmImg,
   },
   {
     id: 'secret',
     label: 'То, о чём никто не знает',
+    description: 'Секретные локации региона',
     bgImage: secretImg,
     cardImage: secretImg,
   },
@@ -87,34 +92,31 @@ onMounted(async () => {
 
 function buildFallbackClusters(cards: ClusterCard[]): Map<string, Cluster> {
   const factPresets: Record<string, [string, string, string]> = {
-  cl1: ['Соль в воздухе', 'Закат рядом', 'Тихая бухта'],
-  cl2: ['Тишина рядом', 'Чай и зелень', 'Туман красиво'],
-  cl3: ['Фокус и вид', 'Дела в тишине', 'Заметки на свежем'],
-  cl4: ['Вино в бокале', 'Ремесло вкусно', 'Ветер в листьях'],
-  cl5: ['Игра и вкус', 'Творчество рядом', 'Шаги в радость'],
-  cl6: ['Тайные мастерские', 'Дела руками', 'Фото без толпы'],
-}
+    cl1: ['Соль в воздухе', 'Закат рядом', 'Тихая бухта'],
+    cl2: ['Тишина рядом', 'Чай и зелень', 'Туман красиво'],
+    cl3: ['Фокус и вид', 'Дела в тишине', 'Заметки на свежем'],
+    cl4: ['Вино в бокале', 'Ремесло вкусно', 'Ветер в листьях'],
+    cl5: ['Игра и вкус', 'Творчество рядом', 'Шаги в радость'],
+    cl6: ['Тайные мастерские', 'Дела руками', 'Фото без толпы'],
+  }
 
-// В MVP данных о фото нет: поэтому используем разные уже существующие картинки
-// (по 3 на кластер), чтобы в галерее было “много” изображений.
-const clusterPhotoSets: Record<string, [string, string, string]> = {
-  cl1: [seaImg, calmImg, wineImg],
-  cl2: [calmImg, seaImg, viewImg],
-  cl3: [viewImg, calmImg, seaImg],
-  cl4: [wineImg, secretImg, calmImg],
-  cl5: [kidsImg, seaImg, viewImg],
-  cl6: [secretImg, calmImg, kidsImg],
-}
+  const clusterPhotoSets: Record<string, [string, string, string]> = {
+    cl1: [seaImg, calmImg, wineImg],
+    cl2: [calmImg, seaImg, viewImg],
+    cl3: [viewImg, calmImg, seaImg],
+    cl4: [wineImg, secretImg, calmImg],
+    cl5: [kidsImg, seaImg, viewImg],
+    cl6: [secretImg, calmImg, kidsImg],
+  }
 
-// Координаты для мини-карт и погоды (MVP: заглушки).
-const clusterCoords: Record<string, { lat: number; lon: number }> = {
-  cl1: { lat: 43.585, lon: 39.723 }, // побережье (примерно Сочи)
-  cl2: { lat: 45.041, lon: 37.360 }, // природа/озёра (примерно район Краснодара)
-  cl3: { lat: 44.982, lon: 38.917 }, // вид/работа (примерно юг края)
-  cl4: { lat: 44.958, lon: 37.783 }, // вино (примерно Анапа/окрестности)
-  cl5: { lat: 45.025, lon: 37.170 }, // семейный сценарий (примерно Краснодарский район)
-  cl6: { lat: 44.476, lon: 39.016 }, // станица/ремесла (примерно Новороссийск/окрестности)
-}
+  const clusterCoords: Record<string, { lat: number; lon: number }> = {
+    cl1: { lat: 43.585, lon: 39.723 },
+    cl2: { lat: 45.041, lon: 37.360 },
+    cl3: { lat: 44.982, lon: 38.917 },
+    cl4: { lat: 44.958, lon: 37.783 },
+    cl5: { lat: 45.025, lon: 37.170 },
+    cl6: { lat: 44.476, lon: 39.016 },
+  }
 
   const map = new Map<string, Cluster>()
   for (const c of cards) {
@@ -122,7 +124,7 @@ const clusterCoords: Record<string, { lat: number; lon: number }> = {
     const placePhotos = clusterPhotoSets[c.id] ?? [c.image, c.image, c.image]
     const coords = clusterCoords[c.id] ?? { lat: 45.0, lon: 38.0 }
 
-    const baseDescription = `Сценарий “${c.title}”: локальные смыслы, понятная логистика и ощущение “я нашёл(ла) своё место”.`
+    const baseDescription = `Сценарий "${c.title}": локальные смыслы, понятная логистика и ощущение "я нашёл(ла) своё место".`
 
     const places = [
       {
@@ -137,7 +139,7 @@ const clusterCoords: Record<string, { lat: number; lon: number }> = {
         description: baseDescription,
         reviewsLabel: c.reviews,
         reviews: [
-          { id: `${c.id}-r1`, author: 'Анна', rating: Math.min(5, c.rating), text: 'Визит ощущается как “дистанционное” предвкушение: сразу хочется ехать.' },
+          { id: `${c.id}-r1`, author: 'Анна', rating: Math.min(5, c.rating), text: 'Визит ощущается как "дистанционное" предвкушение: сразу хочется ехать.' },
           { id: `${c.id}-r2`, author: 'Илья', rating: Math.max(4.5, c.rating - 0.2), text: 'Маршрут из деталей — всё сходится, без лишней суеты.' },
           { id: `${c.id}-r3`, author: 'Мария', rating: Math.max(4.4, c.rating - 0.4), text: 'Понравился темп и атмосфера. Вернёмся в сезон.' },
         ],
@@ -151,7 +153,7 @@ const clusterCoords: Record<string, { lat: number; lon: number }> = {
         fact: fact2,
         coordinates: coords,
         cost: Math.round(c.price * 0.92),
-        description: `${baseDescription} В этом варианте — больше “медленных” остановок и воздуха.`,
+        description: `${baseDescription} В этом варианте — больше "медленных" остановок и воздуха.`,
         reviewsLabel: c.reviews,
         reviews: [
           { id: `${c.id}-r4`, author: 'Олег', rating: 4.7, text: 'Хорошо заходит тем, кто хочет спокойную поездку.' },
@@ -168,7 +170,7 @@ const clusterCoords: Record<string, { lat: number; lon: number }> = {
         fact: fact3,
         coordinates: coords,
         cost: Math.round(c.price * 1.04),
-        description: `${baseDescription} Добавили “вау”-кадры и небольшие видовые паузы.`,
+        description: `${baseDescription} Добавили "вау"-кадры и небольшие видовые паузы.`,
         reviewsLabel: c.reviews,
         reviews: [
           { id: `${c.id}-r7`, author: 'Вера', rating: 4.9, text: 'Очень красиво на фото и вживую — прям вау!' },
@@ -219,17 +221,8 @@ function selectGalleryImage(idx: number): void {
   galleryActiveIndex.value = idx
 }
 
-const defaultBgUrl = filters[0]!.bgImage
-const currentBgUrl = ref<string>(defaultBgUrl)
-const nextBgUrl = ref<string>(defaultBgUrl)
-const isBgFading = ref(false)
-const fadeMs = 720
-let bgFadeTimer: number | undefined
-
 const selectedId = ref<string | null>(null)
-const filtersDismissed = ref(false)
-const isBgBlurring = ref(false)
-const clustersVisible = ref(false)
+const showClusters = ref(false)
 
 const clusterFilterMap: Record<string, string[]> = {
   run: ['cl1', 'cl2', 'cl6'],
@@ -251,263 +244,175 @@ const visibleClusters = computed(() => {
   return filtered.length ? filtered : list
 })
 
-const blurStartDelayMs = 900
-const blurHoldMs = 520
-let bgBlurTimer: number | undefined
-let bgSwitchTimer: number | undefined
-let bgRequestId = 0
-
-function blurAndSwapBg(url: string): void {
-  const reqId = ++bgRequestId
-
-  nextBgUrl.value = url
-  isBgBlurring.value = false
-  isBgFading.value = false
-
-  if (bgFadeTimer !== undefined) window.clearTimeout(bgFadeTimer)
-  if (bgBlurTimer !== undefined) window.clearTimeout(bgBlurTimer)
-  if (bgSwitchTimer !== undefined) window.clearTimeout(bgSwitchTimer)
-
-  bgBlurTimer = window.setTimeout(() => {
-    if (reqId !== bgRequestId) return
-    isBgBlurring.value = true
-  }, blurStartDelayMs)
-
-  bgSwitchTimer = window.setTimeout(() => {
-    if (reqId !== bgRequestId) return
-    // В момент появления нового фото плавно “снимаем” сильный блюр.
-    isBgBlurring.value = false
-    isBgFading.value = true
-
-    bgFadeTimer = window.setTimeout(() => {
-      if (reqId !== bgRequestId) return
-      currentBgUrl.value = url
-      isBgFading.value = false
-      // Только после полного кроссфейда показываем карточки кластеров.
-      clustersVisible.value = true
-    }, fadeMs)
-  }, blurStartDelayMs + blurHoldMs)
-}
-
 function selectFilter(filter: Filter): void {
-  if (filtersDismissed.value) return
   selectedId.value = filter.id
-  // всегда показываем тот же снимок, что и у выбранной карточки
-  blurAndSwapBg(filter.cardImage)
-
-  // Плавно “уезжаем” вверх и исчезаем, как в макете.
-  filtersDismissed.value = true
+  showClusters.value = true
 }
 
 function resetToInitial(): void {
-  // Сбрасываем таймеры, чтобы старые blur/fade не перезаписали фон после “назад”.
-  if (bgFadeTimer !== undefined) window.clearTimeout(bgFadeTimer)
-  if (bgBlurTimer !== undefined) window.clearTimeout(bgBlurTimer)
-  if (bgSwitchTimer !== undefined) window.clearTimeout(bgSwitchTimer)
-
-  bgRequestId += 1
-
   selectedId.value = null
-  filtersDismissed.value = false
-  isBgBlurring.value = false
-  isBgFading.value = false
-  clustersVisible.value = false
+  showClusters.value = false
   isGalleryOpen.value = false
-
-  currentBgUrl.value = defaultBgUrl
-  nextBgUrl.value = defaultBgUrl
 }
-
-onBeforeUnmount(() => {
-  if (bgFadeTimer !== undefined) window.clearTimeout(bgFadeTimer)
-  if (bgBlurTimer !== undefined) window.clearTimeout(bgBlurTimer)
-  if (bgSwitchTimer !== undefined) window.clearTimeout(bgSwitchTimer)
-})
 </script>
 
 <template>
-  <main
-    class="landing"
-    :class="{ 'landing--clusters': clustersVisible }"
-    role="application"
-    aria-label="Кластер — лендинг"
-  >
-    <div
-      class="landing__bg landing__bg--current"
-      :class="{ 'landing__bg--hidden': isBgFading, 'landing__bg--blurring': isBgBlurring }"
-      :style="{ backgroundImage: `url(${currentBgUrl})` }"
-    />
-    <div
-      class="landing__bg landing__bg--next"
-      :class="{ 'landing__bg--shown': isBgFading, 'landing__bg--blurring': isBgBlurring }"
-      :style="{ backgroundImage: `url(${nextBgUrl})` }"
-    />
-    <div class="landing__scrim" />
-
-    <div class="landing__content">
-      <div v-if="clustersVisible" class="landing__topBar">
-        <button
-          type="button"
-          class="landing__backBtn"
-          aria-label="Назад"
-          @click="resetToInitial"
-        >
-          <span class="landing__backIcon" aria-hidden="true">←</span>
+  <main class="landing">
+    <!-- Header -->
+    <header class="header">
+      <div class="header__logo">
+        <span class="header__logoIcon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+            <path d="M2 12h20"/>
+          </svg>
+        </span>
+        <span class="header__logoText">Cluster</span>
+      </div>
+      <nav class="header__nav">
+        <button type="button" class="header__navLink" @click="emit('openPlanner')">
+          Маршруты
         </button>
-        <div class="landing__topBarRight">
-          <button
-            type="button"
-            class="landing__partnerLink"
-            @click="emit('openPartner')"
-          >
-            Кабинет партнёра
+        <button type="button" class="header__navLink" @click="emit('openPartner')">
+          Партнёрам
+        </button>
+      </nav>
+      <button type="button" class="header__cta" @click="emit('openPlanner')">
+        Собрать маршрут
+      </button>
+    </header>
+
+    <!-- Hero Section -->
+    <section v-if="!showClusters" class="hero">
+      <div class="hero__content">
+        <span class="hero__badge">Краснодарский край</span>
+        <h1 class="hero__title">
+          Открой свой<br/>идеальный маршрут
+        </h1>
+        <p class="hero__subtitle">
+          Персонализированные путешествия с ИИ-планировщиком.<br/>
+          Выбери настроение — мы подберём места.
+        </p>
+        <div class="hero__actions">
+          <button type="button" class="hero__btn hero__btn--primary" @click="emit('openPlanner')">
+            Подобрать по ИИ
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
           </button>
-          <button
-            type="button"
-            class="landing__planBtn"
-            @click="emit('openPlanner')"
-          >
-            Подобрать маршрут по ИИ
+          <button type="button" class="hero__btn hero__btn--secondary" @click="showClusters = true">
+            Смотреть все
           </button>
         </div>
       </div>
+    </section>
 
-      <h1
-        v-if="!clustersVisible"
-        class="landing__title"
-        :class="{ 'landing__title--dismiss': filtersDismissed }"
-      >
-        Что ты хочешь почувствовать?
-      </h1>
-      <button
-        v-if="!clustersVisible && !filtersDismissed"
-        type="button"
-        class="landing__planCta"
-        @click="emit('openPlanner')"
-      >
-        Подобрать маршрут по предпочтениям →
-      </button>
-      <button
-        v-if="!clustersVisible"
-        type="button"
-        class="landing__partnerCta"
-        @click="emit('openPartner')"
-      >
-        Кабинет партнёра
-      </button>
-
-      <section
-        v-if="!clustersVisible"
-        class="landing__filters"
-        aria-label="Фильтры впечатлений"
-        :class="{ 'landing__filters--dismiss': filtersDismissed }"
-      >
+    <!-- Filters Section -->
+    <section v-if="!showClusters" class="filters">
+      <h2 class="filters__title">Что ты хочешь почувствовать?</h2>
+      <div class="filters__grid">
         <button
-          v-for="(f, idx) in filters"
+          v-for="f in filters"
           :key="f.id"
           type="button"
-          class="landing__card"
-          :class="{
-            'landing__card--active': selectedId === f.id,
-            'landing__card--dismiss': filtersDismissed,
-          }"
-          :style="{ backgroundImage: `url(${f.cardImage})` }"
-          :data-idx="idx"
+          class="filter-card"
           @click="selectFilter(f)"
         >
-          <span class="landing__cardLabel">{{ f.label }}</span>
+          <div class="filter-card__image" :style="{ backgroundImage: `url(${f.cardImage})` }"></div>
+          <div class="filter-card__overlay"></div>
+          <div class="filter-card__content">
+            <h3 class="filter-card__title">{{ f.label }}</h3>
+            <p class="filter-card__desc">{{ f.description }}</p>
+          </div>
         </button>
-      </section>
+      </div>
+    </section>
 
-      <section
-        v-if="clustersVisible"
-        class="landing__clusters"
-        aria-label="Кластеры"
-      >
+    <!-- Clusters Section -->
+    <section v-if="showClusters" class="clusters">
+      <div class="clusters__header">
+        <button type="button" class="clusters__back" @click="resetToInitial">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          Назад
+        </button>
+        <h2 class="clusters__title">
+          {{ selectedId ? filters.find(f => f.id === selectedId)?.label : 'Все маршруты' }}
+        </h2>
+      </div>
+      
+      <div class="clusters__grid">
         <article
-          v-for="(c, idx) in visibleClusters"
-          :key="c.id + '-' + idx"
-          class="landing__clusterCard"
-          :data-idx="idx % 6"
+          v-for="c in visibleClusters"
+          :key="c.id"
+          class="cluster-card"
           role="button"
           tabindex="0"
-          :aria-label="`Открыть кластер: ${c.title}`"
           @click="openClusterById(c.id)"
           @keydown.enter.prevent="openClusterById(c.id)"
-          @keydown.space.prevent="openClusterById(c.id)"
         >
-          <div class="landing__clusterImgWrap">
-            <img
-              class="landing__clusterImg"
-              :src="c.image"
-              :alt="c.title"
-            />
-          </div>
-          <div class="landing__clusterBody">
-            <div class="landing__clusterTop">
-              <div class="landing__clusterRating">
-                <span class="landing__clusterStars">★</span>
-                <span>{{ c.rating }}</span>
-              </div>
-              <div class="landing__clusterReviews">{{ c.reviews }}</div>
+          <div class="cluster-card__image">
+            <img :src="c.image" :alt="c.title" />
+            <div class="cluster-card__rating">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+              </svg>
+              {{ c.rating }}
             </div>
-            <div class="landing__clusterTitle">{{ c.title }}</div>
-            <div class="landing__clusterMeta">{{ c.meta }}</div>
-            <div class="landing__clusterPrice">{{ c.price }} ₽</div>
-            <div class="landing__clusterActions">
+          </div>
+          <div class="cluster-card__body">
+            <span class="cluster-card__meta">{{ c.meta }}</span>
+            <h3 class="cluster-card__title">{{ c.title }}</h3>
+            <div class="cluster-card__footer">
+              <span class="cluster-card__price">{{ c.price.toLocaleString('ru-RU') }} ₽</span>
               <button
                 type="button"
-                class="landing__clusterGalleryBtn"
-                aria-label="Просмотреть фото кластера"
+                class="cluster-card__gallery"
                 @click.stop="openClusterGallery(c.id)"
               >
-                Просмотреть фото
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <path d="M21 15l-5-5L5 21"/>
+                </svg>
               </button>
             </div>
           </div>
         </article>
-      </section>
+      </div>
+    </section>
 
-      <div
-        v-if="isGalleryOpen"
-        class="galleryOverlay"
-        role="dialog"
-        aria-modal="true"
-        tabindex="0"
-        @click="closeClusterGallery"
-        @keydown.esc="closeClusterGallery"
-      >
-        <div class="galleryModal" @click.stop>
-          <div class="galleryHeader">
-            <div class="galleryTitle">{{ galleryClusterTitle }}</div>
-            <button type="button" class="galleryCloseBtn" aria-label="Закрыть" @click="closeClusterGallery">
-              ✕
-            </button>
-          </div>
-
-          <div class="galleryMain">
-            <img
-              v-if="galleryImages.length"
-              :src="galleryImages[galleryActiveIndex]"
-              class="galleryMainImg"
-              alt="Фото кластера"
-            />
-          </div>
-
-          <div class="galleryThumbs" role="list" aria-label="Миниатюры">
-            <button
-              v-for="(img, idx) in galleryImages"
-              :key="img + idx"
-              type="button"
-              class="galleryThumb"
-              :class="{ 'galleryThumb--active': idx === galleryActiveIndex }"
-              role="listitem"
-              :aria-label="`Фото ${idx + 1}`"
-              @click="selectGalleryImage(idx)"
-            >
-              <img :src="img" class="galleryThumbImg" :alt="`Фото ${idx + 1}`" />
-            </button>
-          </div>
+    <!-- Gallery Modal -->
+    <div v-if="isGalleryOpen" class="gallery-modal" @click="closeClusterGallery">
+      <div class="gallery-modal__content" @click.stop>
+        <div class="gallery-modal__header">
+          <h3 class="gallery-modal__title">{{ galleryClusterTitle }}</h3>
+          <button type="button" class="gallery-modal__close" @click="closeClusterGallery">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="gallery-modal__main">
+          <img
+            v-if="galleryImages.length"
+            :src="galleryImages[galleryActiveIndex]"
+            alt="Фото кластера"
+          />
+        </div>
+        <div class="gallery-modal__thumbs">
+          <button
+            v-for="(img, idx) in galleryImages"
+            :key="idx"
+            type="button"
+            class="gallery-modal__thumb"
+            :class="{ 'gallery-modal__thumb--active': idx === galleryActiveIndex }"
+            @click="selectGalleryImage(idx)"
+          >
+            <img :src="img" :alt="`Фото ${idx + 1}`" />
+          </button>
         </div>
       </div>
     </div>
@@ -516,893 +421,556 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .landing {
-  position: relative;
-  height: 100svh;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  box-sizing: border-box;
-  padding: 22px 18px;
+  min-height: 100vh;
+  background: var(--bg-primary);
 }
 
-.landing--clusters {
-  /* После появления карточек разрешаем скролл (внутри экрана), чтобы без “дёргания” на первом экране. */
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-  height: auto;
-  min-height: 100svh;
-  align-items: stretch;
-}
-
-.landing--clusters .landing__bg {
-  opacity: 0 !important;
-}
-
-.landing--clusters .landing__scrim {
-  background:
-    radial-gradient(1100px 520px at 20% 10%, rgba(0, 194, 255, 0.28), transparent 60%),
-    radial-gradient(900px 520px at 85% 20%, rgba(170, 59, 255, 0.22), transparent 55%),
-    linear-gradient(
-      180deg,
-      rgba(0, 0, 0, 0.2) 0%,
-      rgba(0, 0, 0, 0.55) 60%,
-      rgba(0, 0, 0, 0.75) 100%
-    );
-}
-
-.landing__bg {
-  position: absolute;
-  inset: 0;
-  background-size: cover;
-  background-position: center;
-  transition:
-    opacity var(--bg-fade-ms, 720ms) cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform var(--bg-fade-ms, 720ms) cubic-bezier(0.2, 0.8, 0.2, 1),
-    filter var(--bg-fade-ms, 720ms) cubic-bezier(0.2, 0.8, 0.2, 1);
-  transform: scale(1.03);
-  filter: blur(8px);
-  will-change: opacity, transform, filter;
-}
-
-.landing__bg--blurring {
-  filter: blur(18px) saturate(1.1) contrast(1.04) !important;
-  transform: scale(1.06);
-}
-
-.landing__bg--current {
-  opacity: 1;
-  transform: scale(1);
-  filter: blur(0);
-}
-
-.landing__bg--next {
-  opacity: 0;
-  transform: scale(1.05);
-  filter: blur(10px);
-}
-
-.landing__bg--hidden {
-  opacity: 0;
-  transform: scale(1.08);
-  filter: blur(12px);
-}
-
-.landing__bg--shown {
-  opacity: 1;
-  transform: scale(1);
-  filter: blur(0);
-}
-
-.landing__scrim {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(0, 0, 0, 0.45) 0%,
-      rgba(0, 0, 0, 0.25) 45%,
-      rgba(0, 0, 0, 0.55) 100%
-    );
-}
-
-.landing__title {
-  position: relative;
-  z-index: 1;
-  color: #ffffff;
-  font-family: var(--heading);
-  font-weight: 700;
-  font-size: clamp(22px, 2.9vw, 40px);
-  text-align: center;
-  line-height: 1.1;
-  margin: 0;
-  padding: 0 16px;
-  text-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
-  animation: titleIn 700ms ease both;
-  transform: translateY(0);
-  transition:
-    opacity 900ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    filter 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.landing__title--dismiss {
-  /* важно: гасим стартовую titleIn анимацию, чтобы не “возвращала” opacity */
-  animation: none;
-  opacity: 0 !important;
-  transform: translateY(-28px);
-  filter: blur(16px);
-}
-
-.landing__content {
-  position: relative;
-  z-index: 1;
-  width: min(1120px, 100%);
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding-top: 0;
-  gap: 26px;
-}
-
-.landing--clusters .landing__content {
-  height: auto;
-  min-height: 100svh;
-  justify-content: flex-start;
-}
-
-.landing__topBar {
+/* Header */
+.header {
   position: fixed;
-  top: calc(14px + env(safe-area-inset-top));
-  left: calc(14px + env(safe-area-inset-left));
-  right: calc(14px + env(safe-area-inset-right));
-  z-index: 3;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  padding: var(--space-4) var(--space-6);
+  background: rgba(10, 10, 11, 0.8);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.landing__backBtn {
-  position: static;
-  z-index: 3;
+.header__logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-primary);
+}
+
+.header__logoIcon {
+  display: flex;
+  color: var(--accent);
+}
+
+.header__logoText {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.header__nav {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.header__navLink {
+  padding: var(--space-2) var(--space-3);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.header__navLink:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.header__cta {
+  padding: var(--space-2) var(--space-4);
+  font-size: 14px;
+  font-weight: 500;
+  color: #000;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.header__cta:hover {
+  background: var(--accent-light);
+}
+
+/* Hero */
+.hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: calc(80px + var(--space-16)) var(--space-6) var(--space-10);
+  text-align: center;
+}
+
+.hero__content {
+  max-width: 720px;
+}
+
+.hero__badge {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  color: rgba(255, 255, 255, 0.95);
-  cursor: pointer;
-  transition: box-shadow 180ms ease, background-color 180ms ease, border-color 180ms ease;
-  box-shadow:
-    0 18px 60px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  animation:
-    backBtnIn 420ms ease both,
-    backBtnFloat 4s ease-in-out infinite 420ms;
-}
-
-.landing__backBtn:hover {
-  border-color: rgba(0, 194, 255, 0.75);
-  background: rgba(0, 194, 255, 0.12);
-}
-
-.landing__backIcon {
-  font-size: 18px;
-  line-height: 1;
-}
-
-.landing__topBarRight {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.landing__partnerLink {
-  padding: 8px 14px;
-  border: none;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  text-decoration: none;
-  border-radius: 10px;
-  transition: background 160ms ease, color 160ms ease;
-}
-.landing__partnerLink:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 1);
-}
-
-.landing__backText {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.2px;
-}
-
-.landing__planBtn {
-  padding: 10px 16px;
-  border-radius: 999px;
-  border: 1px solid rgba(0, 194, 255, 0.5);
-  background: rgba(0, 194, 255, 0.12);
-  color: rgba(255, 255, 255, 0.98);
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease;
-}
-.landing__planBtn:hover {
-  background: rgba(0, 194, 255, 0.2);
-  border-color: rgba(0, 194, 255, 0.75);
-}
-
-.landing__planCta {
-  display: block;
-  margin: 12px auto 0;
-  padding: 10px 20px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.95);
-  border-radius: 14px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease;
-}
-.landing__planCta:hover {
-  background: rgba(0, 194, 255, 0.15);
-  border-color: rgba(0, 194, 255, 0.5);
-}
-
-.landing__partnerCta {
-  position: fixed;
-  top: calc(14px + env(safe-area-inset-top));
-  right: calc(14px + env(safe-area-inset-right));
-  padding: 8px 16px;
-  border: none;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.75);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   font-size: 13px;
   font-weight: 500;
+  color: var(--accent-light);
+  background: var(--accent-muted);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-full);
+  margin-bottom: var(--space-6);
+}
+
+.hero__title {
+  font-size: clamp(36px, 6vw, 64px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  margin-bottom: var(--space-5);
+}
+
+.hero__subtitle {
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-8);
+}
+
+.hero__actions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.hero__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-6);
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: var(--radius-lg);
   cursor: pointer;
-  border-radius: 10px;
-  z-index: 2;
-  transition: background 160ms ease, color 160ms ease;
-}
-.landing__partnerCta:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.95);
+  transition: all var(--transition-fast);
 }
 
-.landing__backBtn[aria-label='Назад'] {
-  animation: backBtnIn 420ms ease both;
+.hero__btn--primary {
+  color: #000;
+  background: var(--accent);
+  border: none;
 }
 
-.landing__filters {
-  width: 100%;
+.hero__btn--primary:hover {
+  background: var(--accent-light);
+  transform: translateY(-1px);
+}
+
+.hero__btn--secondary {
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid var(--border-default);
+}
+
+.hero__btn--secondary:hover {
+  background: var(--bg-elevated);
+  border-color: var(--border-strong);
+}
+
+/* Filters */
+.filters {
+  padding: 0 var(--space-6) var(--space-16);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.filters__title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-6);
+  text-align: center;
+}
+
+.filters__grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  padding: 0 8px 8px;
-  margin-top: 0;
-  transition:
-    opacity 920ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 1200ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    filter 920ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  opacity: 1;
-  transform: translateY(0);
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
 }
 
-.landing__filters--dismiss {
-  opacity: 0;
-  transform: translateY(-84px);
-  filter: blur(4px);
-  pointer-events: none;
-}
-
-.landing__clusters {
-  width: 100%;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  padding: 0 8px 6px;
-  animation: clustersIn 720ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-.landing__clusterCard {
-  border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(16px) saturate(145%);
-  -webkit-backdrop-filter: blur(16px) saturate(145%);
-  box-shadow:
-    0 26px 90px rgba(0, 0, 0, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+.filter-card {
+  position: relative;
+  aspect-ratio: 4/3;
+  border-radius: var(--radius-xl);
   overflow: hidden;
-  transform: translateY(10px);
-  opacity: 0;
-  animation: clusterCardIn 720ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   cursor: pointer;
+  border: 1px solid var(--border-subtle);
+  transition: all var(--transition-base);
 }
 
-.landing__clusterCard:hover {
-  transform: translateY(0) scale(1.02);
-  border-color: rgba(0, 194, 255, 0.65);
-  box-shadow:
-    0 30px 110px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+.filter-card:hover {
+  border-color: var(--accent-border);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
 }
 
-.landing__clusterCard:focus-visible {
-  outline: 2px solid rgba(0, 194, 255, 0.9);
-  outline-offset: 4px;
+.filter-card__image {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: transform var(--transition-slow);
 }
 
-.landing__clusterImgWrap {
-  width: 100%;
-  aspect-ratio: 16 / 10;
+.filter-card:hover .filter-card__image {
+  transform: scale(1.05);
+}
+
+.filter-card__overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.85) 0%,
+    rgba(0, 0, 0, 0.4) 50%,
+    rgba(0, 0, 0, 0.2) 100%
+  );
+}
+
+.filter-card__content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: var(--space-5);
+}
+
+.filter-card__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.filter-card__desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* Clusters */
+.clusters {
+  padding: calc(80px + var(--space-6)) var(--space-6) var(--space-16);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.clusters__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+
+.clusters__back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.clusters__back:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.clusters__title {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.clusters__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+}
+
+.cluster-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.cluster-card:hover {
+  border-color: var(--border-default);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.cluster-card__image {
+  position: relative;
+  aspect-ratio: 16/10;
   overflow: hidden;
 }
 
-.landing__clusterImg {
+.cluster-card__image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
+  transition: transform var(--transition-slow);
 }
 
-.landing__clusterBody {
-  padding: 12px 14px 16px;
-  color: rgba(255, 255, 255, 0.95);
+.cluster-card:hover .cluster-card__image img {
+  transform: scale(1.05);
 }
 
-.landing__clusterTop {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: 8px;
+.cluster-card__rating {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  border-radius: var(--radius-sm);
 }
 
-.landing__clusterRating {
+.cluster-card__rating svg {
+  color: #fbbf24;
+}
+
+.cluster-card__body {
+  padding: var(--space-4);
+}
+
+.cluster-card__meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cluster-card__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: var(--space-1);
+  margin-bottom: var(--space-3);
+  line-height: 1.3;
+}
+
+.cluster-card__footer {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+}
+
+.cluster-card__price {
+  font-size: 18px;
   font-weight: 700;
-  font-size: 14px;
+  color: var(--accent-light);
 }
 
-.landing__clusterStars {
-  color: rgba(255, 255, 255, 0.95);
+.cluster-card__gallery {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
-.landing__clusterReviews {
-  font-size: 12px;
-  opacity: 0.85;
+.cluster-card__gallery:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border-color: var(--border-default);
 }
 
-.landing__clusterTitle {
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1.2;
-  margin-bottom: 6px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+/* Gallery Modal */
+.gallery-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+}
+
+.gallery-modal__content {
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
   overflow: hidden;
 }
 
-.landing__clusterMeta {
-  font-size: 12px;
-  opacity: 0.82;
-  margin-bottom: 10px;
-}
-
-.landing__clusterPrice {
-  font-size: 18px;
-  font-weight: 800;
-}
-
-.landing__clusterCard[data-idx='0'] {
-  animation-delay: 0ms;
-}
-.landing__clusterCard[data-idx='1'] {
-  animation-delay: 80ms;
-}
-.landing__clusterCard[data-idx='2'] {
-  animation-delay: 160ms;
-}
-.landing__clusterCard[data-idx='3'] {
-  animation-delay: 240ms;
-}
-.landing__clusterCard[data-idx='4'] {
-  animation-delay: 320ms;
-}
-.landing__clusterCard[data-idx='5'] {
-  animation-delay: 400ms;
-}
-
-@keyframes clustersIn {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-    filter: blur(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-    filter: blur(0);
-  }
-}
-
-@keyframes clusterCardIn {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-    filter: blur(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-    filter: blur(0);
-  }
-}
-
-.landing__card {
-  appearance: none;
-  border: 1px solid rgba(255, 255, 255, 0.34);
-  border-radius: 28px;
-  cursor: pointer;
-  padding: 30px 18px;
-  min-height: 124px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  /* Стекло: непрозрачность + сильный blur, без “пластика”. */
-  background-color: rgba(255, 255, 255, 0.09);
-  background-size: cover;
-  background-position: center;
-
-  position: relative;
-  color: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(22px) saturate(165%);
-  -webkit-backdrop-filter: blur(22px) saturate(165%);
-
-  transform: scale(1);
-  transition:
-    transform 170ms ease,
-    border-color 170ms ease,
-    box-shadow 170ms ease,
-    background-color 170ms ease;
-
-  opacity: 0;
-  filter: blur(6px);
-  animation: cardIn 850ms ease forwards;
-
-  box-shadow:
-    0 26px 90px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.landing__card--dismiss {
-  opacity: 0;
-  transform: scale(0.98) translateY(-22px);
-  filter: blur(26px);
-  transition:
-    transform 1100ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    opacity 1100ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    filter 1100ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.landing__card--dismiss[data-idx='0'] {
-  transition-delay: 0ms;
-}
-.landing__card--dismiss[data-idx='1'] {
-  transition-delay: 70ms;
-}
-.landing__card--dismiss[data-idx='2'] {
-  transition-delay: 140ms;
-}
-.landing__card--dismiss[data-idx='3'] {
-  transition-delay: 210ms;
-}
-.landing__card--dismiss[data-idx='4'] {
-  transition-delay: 280ms;
-}
-.landing__card--dismiss[data-idx='5'] {
-  transition-delay: 350ms;
-}
-
-.landing__card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  z-index: 0;
-
-  /* Многослойная подложка под “преломление стекла”. */
-  background:
-    radial-gradient(
-      120% 90% at 18% 10%,
-      rgba(255, 255, 255, 0.45) 0%,
-      rgba(255, 255, 255, 0.08) 40%,
-      rgba(255, 255, 255, 0) 68%
-    ),
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.14) 0%,
-      rgba(0, 0, 0, 0.18) 42%,
-      rgba(0, 0, 0, 0.46) 100%
-    );
-
-  transition:
-    background 220ms ease,
-    opacity 220ms ease,
-    filter 220ms ease;
-  opacity: 1;
-  filter: saturate(115%);
-}
-
-.landing__card::after {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.6) 0%,
-    rgba(255, 255, 255, 0.12) 35%,
-    rgba(255, 255, 255, 0) 62%
-  );
-  opacity: 0;
-  transition: opacity 180ms ease, transform 180ms ease;
-  z-index: 0;
-  pointer-events: none;
-}
-
-.landing__cardLabel {
-  position: relative;
-  z-index: 1;
-  font-family: var(--heading);
-  font-weight: 700;
-  font-size: 21px;
-  text-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-  text-align: center;
-  line-height: 1.12;
-}
-
-.landing__card:hover {
-  transform: scale(1.06);
-  border-color: rgba(0, 194, 255, 0.75);
-  box-shadow:
-    0 28px 90px rgba(0, 0, 0, 0.36),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
-}
-
-.landing__card:hover::before {
-  background:
-    linear-gradient(
-      180deg,
-      rgba(0, 194, 255, 0.20) 0%,
-      rgba(0, 0, 0, 0.18) 45%,
-      rgba(0, 0, 0, 0.45) 100%
-    );
-}
-
-.landing__card:hover::after {
-  opacity: 1;
-  transform: translateY(-1px);
-}
-
-.landing__card--active {
-  transform: scale(1.08);
-  border-color: rgba(0, 194, 255, 0.9);
-  box-shadow:
-    0 32px 100px rgba(0, 0, 0, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.26);
-}
-
-.landing__card--active::before {
-  filter: saturate(125%);
-  background:
-    radial-gradient(
-      120% 90% at 18% 10%,
-      rgba(255, 255, 255, 0.48) 0%,
-      rgba(255, 255, 255, 0.09) 42%,
-      rgba(255, 255, 255, 0) 70%
-    ),
-    linear-gradient(
-      180deg,
-      rgba(0, 194, 255, 0.20) 0%,
-      rgba(0, 0, 0, 0.14) 42%,
-      rgba(0, 0, 0, 0.54) 100%
-    );
-}
-
-.landing__card:focus-visible {
-  outline: 2px solid rgba(0, 194, 255, 0.9);
-  outline-offset: 3px;
-}
-
-@media (max-width: 980px) {
-  .landing__filters {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-  }
-
-  .landing__cardLabel {
-    font-size: 16px;
-  }
-
-  .landing__clusters {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 520px) {
-  .landing {
-    padding: 18px 14px;
-  }
-
-  .landing__content {
-    padding-top: 0;
-    gap: 16px;
-  }
-
-  .landing__filters {
-    grid-template-columns: 1fr;
-    gap: 12px;
-    padding-bottom: 4px;
-  }
-
-  .landing__card {
-    min-height: 76px;
-    padding: 16px 14px;
-    border-radius: 16px;
-  }
-
-  .landing__cardLabel {
-    font-size: 14px;
-  }
-
-  .landing__clusters {
-    grid-template-columns: 1fr;
-    gap: 12px;
-    padding-bottom: 8px;
-  }
-}
-
-@media (max-height: 740px) and (min-width: 521px) {
-  .landing__content {
-    gap: 20px;
-  }
-
-  .landing__filters {
-    gap: 14px;
-    padding-bottom: 6px;
-  }
-
-  .landing__card {
-    padding: 24px 18px;
-    min-height: 110px;
-  }
-
-  .landing__cardLabel {
-    font-size: 19px;
-  }
-}
-
-.landing__clusterActions {
-  padding-top: 10px;
-}
-
-.landing__clusterGalleryBtn {
-  width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(0, 0, 0, 0.22);
-  color: rgba(255, 255, 255, 0.98);
-  border-radius: 14px;
-  padding: 10px 12px;
-  font-weight: 900;
-  letter-spacing: 0.15px;
-  cursor: pointer;
-  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
-}
-
-.landing__clusterGalleryBtn:hover {
-  transform: translateY(-1px);
-  border-color: rgba(0, 194, 255, 0.6);
-  background: rgba(0, 194, 255, 0.14);
-}
-
-.galleryOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  background: rgba(0, 0, 0, 0.52);
-  backdrop-filter: blur(10px) saturate(120%);
-  -webkit-backdrop-filter: blur(10px) saturate(120%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-
-.galleryModal {
-  width: min(920px, 100%);
-  max-height: 86vh;
-  overflow: auto;
-  border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(18, 18, 26, 0.78);
-  box-shadow: 0 40px 160px rgba(0, 0, 0, 0.65);
-}
-
-.galleryHeader {
+.gallery-modal__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.galleryTitle {
-  font-weight: 1000;
-  letter-spacing: 0.2px;
-  color: rgba(255, 255, 255, 0.98);
+.gallery-modal__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
-.galleryCloseBtn {
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.96);
-  border-radius: 12px;
-  padding: 8px 10px;
-  cursor: pointer;
-}
-
-.galleryMain {
-  padding: 12px 16px 10px;
-}
-
-.galleryMainImg {
-  width: 100%;
-  height: min(440px, 52vh);
-  object-fit: cover;
-  display: block;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-}
-
-.galleryThumbs {
+.gallery-modal__close {
   display: flex;
-  gap: 10px;
-  padding: 10px 16px 16px;
-  overflow: auto;
-}
-
-.galleryThumb {
-  flex: 0 0 auto;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 14px;
-  padding: 6px;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+  transition: all var(--transition-fast);
 }
 
-.galleryThumb:hover {
-  transform: translateY(-1px);
-  border-color: rgba(0, 194, 255, 0.45);
+.gallery-modal__close:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
 }
 
-.galleryThumb--active {
-  border-color: rgba(0, 194, 255, 0.85);
-  background: rgba(0, 194, 255, 0.12);
+.gallery-modal__main {
+  padding: var(--space-4);
 }
 
-.galleryThumbImg {
-  width: 96px;
-  height: 64px;
+.gallery-modal__main img {
+  width: 100%;
+  height: auto;
+  max-height: 60vh;
+  object-fit: contain;
+  border-radius: var(--radius-lg);
+}
+
+.gallery-modal__thumbs {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  padding-top: 0;
+  overflow-x: auto;
+}
+
+.gallery-modal__thumb {
+  flex-shrink: 0;
+  width: 80px;
+  height: 60px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.gallery-modal__thumb img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  border-radius: 10px;
-  display: block;
 }
 
-@keyframes backBtnIn {
-  from {
-    opacity: 0;
-    transform: translateY(-8px) scale(0.98);
-    filter: blur(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0);
-  }
+.gallery-modal__thumb:hover {
+  border-color: var(--text-tertiary);
 }
 
-@keyframes backBtnFloat {
-  0%,
-  100% {
-    transform: translateY(0);
+.gallery-modal__thumb--active {
+  border-color: var(--accent);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .filters__grid {
+    grid-template-columns: repeat(2, 1fr);
   }
-  50% {
-    transform: translateY(2px);
+  
+  .clusters__grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@keyframes titleIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
+@media (max-width: 640px) {
+  .header__nav {
+    display: none;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  
+  .hero {
+    padding-top: calc(60px + var(--space-10));
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
   }
-}
-
-@keyframes cardIn {
-  to {
-    opacity: 1;
-    filter: blur(0);
+  
+  .hero__subtitle br {
+    display: none;
   }
-}
-
-/* Небольшая стаггер-анимация карточек */
-.landing__card[data-idx='0'] {
-  animation-delay: 0ms;
-}
-.landing__card[data-idx='1'] {
-  animation-delay: 90ms;
-}
-.landing__card[data-idx='2'] {
-  animation-delay: 180ms;
-}
-.landing__card[data-idx='3'] {
-  animation-delay: 270ms;
-}
-.landing__card[data-idx='4'] {
-  animation-delay: 360ms;
-}
-.landing__card[data-idx='5'] {
-  animation-delay: 450ms;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .landing__bg {
-    transition: none;
+  
+  .hero__actions {
+    flex-direction: column;
+    width: 100%;
   }
-  .landing__title,
-  .landing__card,
-  .landing__clusterCard {
-    animation: none;
-    opacity: 1;
-    filter: none;
-    transition: none;
+  
+  .hero__btn {
+    width: 100%;
+    justify-content: center;
   }
-  .landing__filters {
-    transition: none;
+  
+  .filters {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
   }
-  .landing__bg--blurring {
-    filter: none !important;
-    transform: none;
+  
+  .filters__grid {
+    grid-template-columns: 1fr;
   }
-  .landing__clusters {
-    animation: none;
+  
+  .clusters {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+  
+  .clusters__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+  
+  .clusters__grid {
+    grid-template-columns: 1fr;
   }
 }
-
-/* Варп/стекание больше не используем: только блюр и кроссфейд. */
 </style>
-

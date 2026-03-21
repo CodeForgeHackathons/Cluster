@@ -26,7 +26,7 @@ const emit = defineEmits<{
   (e: 'back'): void
 }>()
 
-// ---------- Авторизация ----------
+// Auth state
 type AuthMode = 'login' | 'register'
 const authMode = ref<AuthMode>('login')
 const authLogin = ref('')
@@ -46,7 +46,7 @@ const newClusterTitle = ref('')
 const newClusterMeta = ref('')
 const newClusterDescription = ref('')
 
-// ---------- Кабинет ----------
+// Cabinet state
 const places = ref<PartnerPlace[]>([])
 const selectedPlace = ref<PartnerPlaceDetail | null>(null)
 const selectedPlaceLoading = ref(false)
@@ -78,8 +78,7 @@ const formDescription = ref('')
 const formPrice = ref<number | ''>('')
 const formImageUrl = ref('')
 
-// ---------- Авторизация: функции ----------
-
+// Auth functions
 async function tryRestoreSession(): Promise<void> {
   if (!getToken()) return
   try {
@@ -133,15 +132,13 @@ function logout(): void {
   showEditForm.value = false
 }
 
-// ---------- Данные ----------
-
-/** Unsplash и др. часто режут картинки при Referer с localhost — без referrer грузится стабильнее */
+// Data functions
 const PLACEHOLDER_PHOTO =
   'data:image/svg+xml,' +
   encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="112" viewBox="0 0 160 112">' +
-      '<rect width="160" height="112" fill="#2a2d3a"/>' +
-      '<text x="80" y="58" text-anchor="middle" fill="#8b90a0" font-family="system-ui,sans-serif" font-size="11">Фото</text>' +
+      '<rect width="160" height="112" fill="#18181b"/>' +
+      '<text x="80" y="58" text-anchor="middle" fill="#52525b" font-family="system-ui,sans-serif" font-size="11">Фото</text>' +
       '</svg>',
   )
 
@@ -224,40 +221,6 @@ async function loadData(): Promise<void> {
   error.value = ''
   try {
     places.value = await fetchPartnerPlaces()
-    console.log('Загруженные места:', places.value)
-    console.log('Количество мест:', places.value.length)
-    if (places.value.length > 0) {
-      const firstPlace = places.value[0]
-      const lastPlace = places.value[places.value.length - 1]
-      console.log('Первое место (детально):', firstPlace)
-      console.log('Последнее место (детально):', lastPlace)
-      console.log('Последнее место (JSON):', JSON.stringify(lastPlace, null, 2))
-      console.log('Поля последнего места:', {
-        place_type: lastPlace.place_type,
-        cluster_id: lastPlace.cluster_id,
-        name: lastPlace.name,
-        id: lastPlace.place_id
-      })
-      
-      // Проверяем детальную информацию о последнем месте
-      fetchPartnerPlaceDetail(lastPlace.place_id).then(detail => {
-        console.log('Детальная информация о последнем месте:', detail)
-        console.log('Детальные поля:', {
-          cluster_id: detail.cluster_id,
-          place_type: detail.place_type,
-          name: detail.name
-        })
-      }).catch(err => {
-        console.log('Ошибка при загрузке детальной информации:', err)
-      })
-    }
-    console.log('Доступные кластеры:', partnerClusters.value)
-    if (partnerClusters.value.length > 0) {
-      const firstCluster = partnerClusters.value[0]
-      console.log('Первый кластер (детально):', firstCluster)
-      console.log('Первый кластер (JSON):', JSON.stringify(firstCluster, null, 2))
-      console.log('ID первого кластера:', firstCluster.id)
-    }
   } catch (e) {
     error.value = (e as Error)?.message ?? 'Ошибка загрузки'
   } finally {
@@ -266,9 +229,7 @@ async function loadData(): Promise<void> {
 }
 
 function getPlacesForCluster(clusterId: string): PartnerPlace[] {
-  const filtered = places.value.filter(place => place.cluster_id === clusterId)
-  console.log(`Кластер "${clusterId}": найдено ${filtered.length} мест`, filtered)
-  return filtered
+  return places.value.filter(place => place.cluster_id === clusterId)
 }
 
 function getPlacesWord(count: number): string {
@@ -281,13 +242,9 @@ async function loadPartnerClusters(): Promise<void> {
   clustersError.value = ''
   clustersLoading.value = true
   try {
-    console.log('Начинаю загрузку кластеров...')
     const clusters = await fetchPartnerClusters()
-    console.log('Кластеры загружены:', clusters)
     partnerClusters.value = clusters
-    console.log('partnerClusters.value установлено:', partnerClusters.value)
   } catch (e) {
-    console.error('Ошибка при загрузке кластеров:', e)
     clustersError.value = (e as Error)?.message ?? 'Не удалось загрузить кластеры'
     partnerClusters.value = []
   } finally {
@@ -381,6 +338,18 @@ function closeCreateForm(): void {
   resetCreateForm()
 }
 
+type PartnerPlaceCreate = {
+  business_id: number
+  cluster_id: string | null
+  name: string
+  place_type: string | null
+  location: string | null
+  interesting_fact: string | null
+  description: string | null
+  price: number | null
+  images: string[]
+}
+
 async function createPlace(): Promise<void> {
   if (!formName.value.trim()) {
     createError.value = 'Введите название места'
@@ -393,11 +362,6 @@ async function createPlace(): Promise<void> {
 
   creating.value = true
   createError.value = ''
-  console.log('=== СОЗДАНИЕ МЕСТА ===')
-  console.log('formClusterId.value:', formClusterId.value)
-  console.log('formName.value:', formName.value)
-  console.log('formType.value:', formType.value)
-  console.log('partnerClusters.value:', partnerClusters.value)
   
   const payload: PartnerPlaceCreate = {
     business_id: currentPartner.value?.id ?? 0,
@@ -410,10 +374,6 @@ async function createPlace(): Promise<void> {
     price: formPrice.value === '' ? null : Number(formPrice.value),
     images: formImageUrl.value.trim() ? [formImageUrl.value.trim()] : [],
   }
-
-  console.log('Создание места с payload:', JSON.stringify(payload, null, 2))
-  console.log('Выбранный кластер ID:', formClusterId.value.trim())
-  console.log('Доступные кластеры для выбора:', partnerClusters.value.map(c => ({ id: c.id, title: c.title })))
 
   try {
     await createPartnerPlace(payload)
@@ -438,862 +398,909 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="partner" role="application" aria-label="Кабинет партнёра">
-    <div class="partner__bg" aria-hidden="true" />
-    <div class="partner__scrim" aria-hidden="true" />
-
-    <!-- Экран авторизации -->
-    <template v-if="!currentPartner">
-      <header class="partner__header">
-        <button type="button" class="partner__backBtn" @click="emit('back')">
-          <span aria-hidden="true">←</span>
-          <span>На главную</span>
-        </button>
-        <div class="partner__headerTitle">
-          <div class="partner__title">Кабинет партнёра</div>
-          <div class="partner__subtitle">Войдите или создайте аккаунт</div>
-        </div>
-      </header>
-
-      <section class="partner__content">
-        <div class="authCard">
-          <div class="authCard__tabs">
-            <button
-              type="button"
-              class="authCard__tab"
-              :class="{ 'authCard__tab--active': authMode === 'login' }"
-              @click="authMode = 'login'; authError = ''"
-            >Войти</button>
-            <button
-              type="button"
-              class="authCard__tab"
-              :class="{ 'authCard__tab--active': authMode === 'register' }"
-              @click="authMode = 'register'; authError = ''"
-            >Регистрация</button>
-          </div>
-
-          <div v-if="authError" class="partner__error authCard__error">{{ authError }}</div>
-
-          <input
-            v-model="authLogin"
-            class="createInput"
-            type="text"
-            :placeholder="authMode === 'login' ? 'Логин или email' : 'Логин (username)'"
-            autocomplete="username"
-          />
-          <template v-if="authMode === 'register'">
-            <input
-              v-model="authEmail"
-              class="createInput"
-              type="email"
-              placeholder="Email *"
-              autocomplete="email"
-            />
-            <input
-              v-model="authFullName"
-              class="createInput"
-              type="text"
-              placeholder="Имя / Название компании"
-              autocomplete="name"
-            />
-          </template>
-          <input
-            v-model="authPassword"
-            class="createInput"
-            type="password"
-            placeholder="Пароль"
-            autocomplete="current-password"
-            @keydown.enter="submitAuth"
-          />
-
-          <button
-            type="button"
-            class="partner__newBtn authCard__submit"
-            :disabled="authLoading || !authLogin.trim() || !authPassword"
-            @click="submitAuth"
-          >
-            {{ authLoading ? 'Подождите…' : (authMode === 'login' ? 'Войти' : 'Создать аккаунт') }}
-          </button>
-        </div>
-      </section>
-    </template>
-
-    <!-- Кабинет партнёра -->
-    <template v-else>
-    <header class="partner__header">
-      <button type="button" class="partner__backBtn" @click="emit('back')">
-        <span aria-hidden="true">←</span>
-        <span>На главную</span>
+  <main class="partner-page">
+    <!-- Header -->
+    <header class="page-header">
+      <button type="button" class="back-btn" @click="emit('back')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        На главную
       </button>
-      <div class="partner__headerTitle">
-        <div class="partner__title">Кабинет партнёра</div>
-        <div class="partner__subtitle">{{ currentPartner.full_name || currentPartner.username }}</div>
+      <div class="page-header__center">
+        <h1 class="page-header__title">Кабинет партнёра</h1>
+        <span v-if="currentPartner" class="page-header__subtitle">
+          {{ currentPartner.full_name || currentPartner.username }}
+        </span>
       </div>
-      <button type="button" class="partner__newBtn" @click="openCreateClusterForm">
-        + Новый кластер
-      </button>
-      <button type="button" class="partner__newBtn" @click="openCreateForm">
-        + Новое место
-      </button>
-      <button type="button" class="partner__backBtn" @click="logout">
-        <span aria-hidden="true">↩</span>
-        <span>Выйти</span>
-      </button>
+      <div v-if="currentPartner" class="page-header__actions">
+        <button type="button" class="header-btn" @click="openCreateClusterForm">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          Кластер
+        </button>
+        <button type="button" class="header-btn" @click="openCreateForm">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          Место
+        </button>
+        <button type="button" class="logout-btn" @click="logout">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+          </svg>
+        </button>
+      </div>
     </header>
 
-    <section class="partner__content">
-      <div v-if="loading" class="partner__loading">Загрузка…</div>
-      <div v-else-if="error" class="partner__error partner__error--center">{{ error }}</div>
-
-      <template v-else>
-        <section v-if="selectedPlace" class="partner__section">
-          <div class="partner__detailNav">
-            <button type="button" class="partner__backBtn partner__backToList" @click="closePlace">
-              <span aria-hidden="true">←</span>
-              <span>К списку мест</span>
-            </button>
-            <div class="partner__detailActions">
+    <div class="page-content">
+      <!-- Auth Screen -->
+      <template v-if="!currentPartner">
+        <div class="auth-container">
+          <div class="auth-card">
+            <div class="auth-tabs">
               <button
                 type="button"
-                class="partner__editBtn"
-                :disabled="deleting"
-                @click="showEditForm ? closeEditForm() : openEditForm()"
+                class="auth-tab"
+                :class="{ 'auth-tab--active': authMode === 'login' }"
+                @click="authMode = 'login'; authError = ''"
               >
-                {{ showEditForm ? '✕ Отмена' : '✏️ Редактировать' }}
+                Вход
               </button>
               <button
                 type="button"
-                class="partner__deleteBtn"
-                :disabled="deleting"
-                @click="deletePlace(selectedPlace.place_id, selectedPlace.name)"
+                class="auth-tab"
+                :class="{ 'auth-tab--active': authMode === 'register' }"
+                @click="authMode = 'register'; authError = ''"
               >
-                {{ deleting ? 'Удаление…' : '🗑 Удалить' }}
+                Регистрация
+              </button>
+            </div>
+
+            <div v-if="authError" class="auth-error">{{ authError }}</div>
+
+            <div class="auth-form">
+              <input
+                v-model="authLogin"
+                type="text"
+                class="auth-input"
+                :placeholder="authMode === 'login' ? 'Логин или email' : 'Логин (username)'"
+                autocomplete="username"
+              />
+              <template v-if="authMode === 'register'">
+                <input
+                  v-model="authEmail"
+                  type="email"
+                  class="auth-input"
+                  placeholder="Email"
+                  autocomplete="email"
+                />
+                <input
+                  v-model="authFullName"
+                  type="text"
+                  class="auth-input"
+                  placeholder="Имя / Название компании"
+                  autocomplete="name"
+                />
+              </template>
+              <input
+                v-model="authPassword"
+                type="password"
+                class="auth-input"
+                placeholder="Пароль"
+                autocomplete="current-password"
+                @keydown.enter="submitAuth"
+              />
+              <button
+                type="button"
+                class="auth-submit"
+                :disabled="authLoading || !authLogin.trim() || !authPassword"
+                @click="submitAuth"
+              >
+                {{ authLoading ? 'Загрузка...' : (authMode === 'login' ? 'Войти' : 'Создать аккаунт') }}
               </button>
             </div>
           </div>
-
-          <section v-if="showEditForm" class="partner__createSection">
-            <div class="createPlaceCard">
-              <div class="createPlaceCard__title">Редактирование места</div>
-              <div v-if="editError" class="partner__error">{{ editError }}</div>
-
-              <input v-model="editName" class="createInput" type="text" placeholder="Название *" />
-              <select v-model="editClusterId" class="createInput">
-                <option value="" disabled>Выберите кластер *</option>
-                <option v-for="c in partnerClusters" :key="c.id" :value="c.id">
-                  {{ c.title }}
-                </option>
-              </select>
-              <input v-model="editType" class="createInput" type="text" placeholder="Тип места" />
-              <input v-model="editLocation" class="createInput" type="text" placeholder="Локация" />
-              <input v-model="editFact" class="createInput" type="text" placeholder="Интересный факт (1-10 слов)" />
-              <textarea v-model="editDescription" class="createInput createInput--textarea" placeholder="Описание" />
-              <input v-model="editPrice" class="createInput" type="number" min="0" step="1" placeholder="Цена, ₽" />
-              <input v-model="editImageUrl" class="createInput" type="url" placeholder="Ссылка на фото (https://...)" />
-
-              <div class="createPlaceCard__actions">
-                <button type="button" class="partner__newBtn" :disabled="saving" @click="savePlace">
-                  {{ saving ? 'Сохранение…' : 'Сохранить изменения' }}
-                </button>
-                <button type="button" class="partner__backBtn" @click="closeEditForm">Отмена</button>
-              </div>
-            </div>
-          </section>
-
-          <article class="placeDetailCard">
-            <img
-              :src="selectedPlace.images[0] || PLACEHOLDER_PHOTO"
-              class="placeDetailCard__img"
-              :alt="selectedPlace.name"
-              referrerpolicy="no-referrer"
-            />
-            <div class="placeDetailCard__body">
-              <div class="placeDetailCard__title">{{ selectedPlace.name }}</div>
-              <div class="placeDetailCard__meta">
-                {{ selectedPlace.location ?? selectedPlace.place_type ?? '—' }}
-              </div>
-              <div v-if="selectedPlace.price != null" class="placeDetailCard__price">
-                {{ selectedPlace.price }} ₽
-              </div>
-              <p v-if="selectedPlace.description" class="placeDetailCard__desc">
-                {{ selectedPlace.description }}
-              </p>
-              <div v-if="selectedPlace.interesting_fact" class="placeDetailCard__fact">
-                Факт: {{ selectedPlace.interesting_fact }}
-              </div>
-            </div>
-          </article>
-        </section>
-
-        <section v-else class="partner__section">
-          <div v-if="selectedPlaceLoading" class="partner__loading">Открываем место…</div>
-
-          <!-- Список кластеров с местами -->
-          <div v-if="!showCreateClusterForm && !showCreateForm && !selectedPlace" class="partner__clusters">
-            <h3 class="partner__sectionTitle">Ваши кластеры и места</h3>
-            <div v-if="clustersLoading" class="partner__loading">Загрузка кластеров…</div>
-            <div v-else-if="clustersError" class="partner__error">{{ clustersError }}</div>
-            <div v-else-if="partnerClusters.length === 0" class="partner__empty">
-              У вас пока нет кластеров. Создайте первый кластер, чтобы добавлять места.
-            </div>
-            <div v-else class="partner__clusterList">
-              <div
-                v-for="cluster in partnerClusters"
-                :key="cluster.id"
-                class="partner__clusterItem"
-              >
-                <div class="partner__clusterInfo">
-                  <div class="partner__clusterTitle">{{ cluster.title }}</div>
-                  <div v-if="cluster.meta" class="partner__clusterMeta">{{ cluster.meta }}</div>
-                  <div class="partner__clusterStatus">Статус: {{ cluster.status }}</div>
-                </div>
-                
-                <!-- Места в этом кластере -->
-                <div class="partner__clusterPlaces">
-                  <div class="partner__clusterPlacesHeader">
-                    <span class="partner__clusterPlacesTitle">Места в кластере</span>
-                    <span class="partner__clusterPlacesCount">
-                      {{ getPlacesForCluster(cluster.id).length }} {{ getPlacesWord(getPlacesForCluster(cluster.id).length) }}
-                    </span>
-                  </div>
-                  
-                  <div v-if="getPlacesForCluster(cluster.id).length === 0" class="partner__emptyCluster">
-                    В этом кластере пока нет мест
-                  </div>
-                  
-                  <div v-else class="partner__placesInCluster">
-                    <article
-                      v-for="place in getPlacesForCluster(cluster.id)"
-                      :key="place.place_id"
-                      class="partnerPlace partnerPlace--inCluster"
-                      @click="openPlace(place.place_id)"
-                    >
-                      <img
-                        :src="placePhotoSrc(place)"
-                        class="partnerPlace__img"
-                        :alt="place.name"
-                        referrerpolicy="no-referrer"
-                        loading="lazy"
-                        @error="onPlacePhotoError(place.place_id)"
-                      />
-                      <div class="partnerPlace__body">
-                        <div class="partnerPlace__name">{{ place.name }}</div>
-                        <div class="partnerPlace__meta">{{ place.location ?? place.place_type ?? '—' }}</div>
-                        <div v-if="place.price != null" class="partnerPlace__price">{{ place.price }} ₽</div>
-                      </div>
-                    </article>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <section v-if="showCreateClusterForm" class="partner__createSection">
-            <div class="createPlaceCard">
-              <div class="createPlaceCard__title">Новый кластер</div>
-              <div v-if="createClusterError" class="partner__error">{{ createClusterError }}</div>
-
-              <input v-model="newClusterTitle" class="createInput" type="text" placeholder="Название кластера *" />
-              <input v-model="newClusterMeta" class="createInput" type="text" placeholder="Мета-описание (кратко)" />
-              <textarea v-model="newClusterDescription" class="createInput createInput--textarea" placeholder="Описание кластера"></textarea>
-
-              <div class="createPlaceCard__actions">
-                <button type="button" class="partner__newBtn" :disabled="creatingCluster" @click="createCluster">
-                  {{ creatingCluster ? 'Создание…' : 'Создать кластер' }}
-                </button>
-                <button type="button" class="partner__backBtn" @click="closeCreateClusterForm">Отмена</button>
-              </div>
-            </div>
-          </section>
-
-          <section v-if="showCreateForm" class="partner__createSection">
-            <div class="createPlaceCard">
-              <div class="createPlaceCard__title">Новое место</div>
-              <div v-if="createError" class="partner__error">{{ createError }}</div>
-
-              <input v-model="formName" class="createInput" type="text" placeholder="Название *" />
-              <select v-model="formClusterId" class="createInput">
-                <option value="" disabled>Выберите кластер *</option>
-                <option v-for="c in partnerClusters" :key="c.id" :value="c.id">
-                  {{ c.title }}
-                </option>
-              </select>
-              <input v-model="formType" class="createInput" type="text" placeholder="Тип места" />
-              <input v-model="formLocation" class="createInput" type="text" placeholder="Локация" />
-              <input v-model="formFact" class="createInput" type="text" placeholder="Интересный факт (1-10 слов)" />
-              <textarea v-model="formDescription" class="createInput createInput--textarea" placeholder="Описание" />
-              <input v-model="formPrice" class="createInput" type="number" min="0" step="1" placeholder="Цена, ₽" />
-              <input v-model="formImageUrl" class="createInput" type="url" placeholder="Ссылка на фото (https://...)" />
-
-              <div class="createPlaceCard__actions">
-                <button type="button" class="partner__newBtn" :disabled="creating" @click="createPlace">
-                  {{ creating ? 'Создание…' : 'Создать место' }}
-                </button>
-                <button type="button" class="partner__backBtn" @click="closeCreateForm">Отмена</button>
-              </div>
-            </div>
-          </section>
-        </section>
+        </div>
       </template>
-    </section>
-    </template>
+
+      <!-- Dashboard -->
+      <template v-else>
+        <div v-if="loading" class="loading-state">Загрузка...</div>
+        <div v-else-if="error" class="error-state">{{ error }}</div>
+
+        <template v-else>
+          <!-- Place Detail -->
+          <section v-if="selectedPlace" class="detail-section">
+            <div class="detail-nav">
+              <button type="button" class="back-btn" @click="closePlace">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                К списку
+              </button>
+              <div class="detail-actions">
+                <button
+                  type="button"
+                  class="action-btn"
+                  :disabled="deleting"
+                  @click="showEditForm ? closeEditForm() : openEditForm()"
+                >
+                  {{ showEditForm ? 'Отмена' : 'Редактировать' }}
+                </button>
+                <button
+                  type="button"
+                  class="action-btn action-btn--danger"
+                  :disabled="deleting"
+                  @click="deletePlace(selectedPlace.place_id, selectedPlace.name)"
+                >
+                  {{ deleting ? 'Удаление...' : 'Удалить' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Edit Form -->
+            <div v-if="showEditForm" class="form-card">
+              <h3 class="form-title">Редактирование места</h3>
+              <div v-if="editError" class="form-error">{{ editError }}</div>
+              
+              <div class="form-grid">
+                <input v-model="editName" class="form-input" type="text" placeholder="Название" />
+                <select v-model="editClusterId" class="form-input">
+                  <option value="" disabled>Выберите кластер</option>
+                  <option v-for="c in partnerClusters" :key="c.id" :value="c.id">
+                    {{ c.title }}
+                  </option>
+                </select>
+                <input v-model="editType" class="form-input" type="text" placeholder="Тип места" />
+                <input v-model="editLocation" class="form-input" type="text" placeholder="Локация" />
+                <input v-model="editFact" class="form-input" type="text" placeholder="Интересный факт" />
+                <input v-model="editPrice" class="form-input" type="number" min="0" placeholder="Цена, ₽" />
+                <textarea v-model="editDescription" class="form-input form-input--textarea" placeholder="Описание"></textarea>
+                <input v-model="editImageUrl" class="form-input" type="url" placeholder="Ссылка на фото" />
+              </div>
+
+              <div class="form-actions">
+                <button type="button" class="submit-btn" :disabled="saving" @click="savePlace">
+                  {{ saving ? 'Сохранение...' : 'Сохранить' }}
+                </button>
+                <button type="button" class="cancel-btn" @click="closeEditForm">Отмена</button>
+              </div>
+            </div>
+
+            <!-- Place Card -->
+            <div class="place-detail-card">
+              <img
+                :src="selectedPlace.images[0] || PLACEHOLDER_PHOTO"
+                :alt="selectedPlace.name"
+                class="place-detail__image"
+                referrerpolicy="no-referrer"
+              />
+              <div class="place-detail__body">
+                <h2 class="place-detail__title">{{ selectedPlace.name }}</h2>
+                <p class="place-detail__meta">
+                  {{ selectedPlace.location ?? selectedPlace.place_type ?? '-' }}
+                </p>
+                <p v-if="selectedPlace.price != null" class="place-detail__price">
+                  {{ selectedPlace.price.toLocaleString('ru-RU') }} ₽
+                </p>
+                <p v-if="selectedPlace.description" class="place-detail__desc">
+                  {{ selectedPlace.description }}
+                </p>
+                <p v-if="selectedPlace.interesting_fact" class="place-detail__fact">
+                  {{ selectedPlace.interesting_fact }}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <!-- Clusters List -->
+          <section v-else class="clusters-section">
+            <div v-if="selectedPlaceLoading" class="loading-state">Загрузка места...</div>
+
+            <!-- Create Cluster Form -->
+            <div v-if="showCreateClusterForm" class="form-card">
+              <h3 class="form-title">Новый кластер</h3>
+              <div v-if="createClusterError" class="form-error">{{ createClusterError }}</div>
+              
+              <div class="form-grid">
+                <input v-model="newClusterTitle" class="form-input" type="text" placeholder="Название кластера" />
+                <input v-model="newClusterMeta" class="form-input" type="text" placeholder="Мета-описание" />
+                <textarea v-model="newClusterDescription" class="form-input form-input--textarea" placeholder="Описание кластера"></textarea>
+              </div>
+
+              <div class="form-actions">
+                <button type="button" class="submit-btn" :disabled="creatingCluster" @click="createCluster">
+                  {{ creatingCluster ? 'Создание...' : 'Создать' }}
+                </button>
+                <button type="button" class="cancel-btn" @click="closeCreateClusterForm">Отмена</button>
+              </div>
+            </div>
+
+            <!-- Create Place Form -->
+            <div v-if="showCreateForm" class="form-card">
+              <h3 class="form-title">Новое место</h3>
+              <div v-if="createError" class="form-error">{{ createError }}</div>
+              
+              <div class="form-grid">
+                <input v-model="formName" class="form-input" type="text" placeholder="Название" />
+                <select v-model="formClusterId" class="form-input">
+                  <option value="" disabled>Выберите кластер</option>
+                  <option v-for="c in partnerClusters" :key="c.id" :value="c.id">
+                    {{ c.title }}
+                  </option>
+                </select>
+                <input v-model="formType" class="form-input" type="text" placeholder="Тип места" />
+                <input v-model="formLocation" class="form-input" type="text" placeholder="Локация" />
+                <input v-model="formFact" class="form-input" type="text" placeholder="Интересный факт" />
+                <input v-model="formPrice" class="form-input" type="number" min="0" placeholder="Цена, ₽" />
+                <textarea v-model="formDescription" class="form-input form-input--textarea" placeholder="Описание"></textarea>
+                <input v-model="formImageUrl" class="form-input" type="url" placeholder="Ссылка на фото" />
+              </div>
+
+              <div class="form-actions">
+                <button type="button" class="submit-btn" :disabled="creating" @click="createPlace">
+                  {{ creating ? 'Создание...' : 'Создать' }}
+                </button>
+                <button type="button" class="cancel-btn" @click="closeCreateForm">Отмена</button>
+              </div>
+            </div>
+
+            <!-- Clusters Grid -->
+            <div v-if="!showCreateClusterForm && !showCreateForm" class="clusters-grid">
+              <h2 class="section-title">Ваши кластеры</h2>
+
+              <div v-if="clustersLoading" class="loading-state">Загрузка кластеров...</div>
+              <div v-else-if="clustersError" class="error-state">{{ clustersError }}</div>
+              <div v-else-if="partnerClusters.length === 0" class="empty-state">
+                <p>У вас пока нет кластеров.</p>
+                <p>Создайте первый кластер, чтобы добавлять места.</p>
+              </div>
+
+              <div v-else class="clusters-list">
+                <article v-for="cluster in partnerClusters" :key="cluster.id" class="cluster-card">
+                  <div class="cluster-header">
+                    <h3 class="cluster-title">{{ cluster.title }}</h3>
+                    <span class="cluster-status">{{ cluster.status }}</span>
+                  </div>
+                  <p v-if="cluster.meta" class="cluster-meta">{{ cluster.meta }}</p>
+
+                  <div class="cluster-places">
+                    <div class="cluster-places__header">
+                      <span>Места в кластере</span>
+                      <span class="cluster-places__count">
+                        {{ getPlacesForCluster(cluster.id).length }} {{ getPlacesWord(getPlacesForCluster(cluster.id).length) }}
+                      </span>
+                    </div>
+
+                    <div v-if="getPlacesForCluster(cluster.id).length === 0" class="empty-cluster">
+                      В этом кластере пока нет мест
+                    </div>
+
+                    <div v-else class="places-list">
+                      <div
+                        v-for="place in getPlacesForCluster(cluster.id)"
+                        :key="place.place_id"
+                        class="place-item"
+                        @click="openPlace(place.place_id)"
+                      >
+                        <img
+                          :src="placePhotoSrc(place)"
+                          :alt="place.name"
+                          class="place-item__image"
+                          referrerpolicy="no-referrer"
+                          loading="lazy"
+                          @error="onPlacePhotoError(place.place_id)"
+                        />
+                        <div class="place-item__info">
+                          <span class="place-item__name">{{ place.name }}</span>
+                          <span class="place-item__meta">{{ place.location ?? place.place_type ?? '-' }}</span>
+                          <span v-if="place.price != null" class="place-item__price">{{ place.price }} ₽</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </section>
+        </template>
+      </template>
+    </div>
   </main>
 </template>
 
 <style scoped>
-.authCard {
-  margin-top: 40px;
-  max-width: 440px;
-  margin-left: auto;
-  margin-right: auto;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 20px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
-  padding: 28px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  backdrop-filter: blur(20px);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+.partner-page {
+  min-height: 100vh;
+  background: var(--bg-primary);
 }
 
-.authCard__tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
-}
-
-.authCard__tab {
-  flex: 1;
-  padding: 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.7);
-  cursor: pointer;
-  font-weight: 600;
-  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
-}
-
-.authCard__tab--active {
-  background: rgba(0, 194, 255, 0.15);
-  border-color: rgba(0, 194, 255, 0.5);
-  color: rgba(255, 255, 255, 0.98);
-}
-
-.authCard__error {
-  padding: 8px 0 4px;
-  text-align: left;
-}
-
-.authCard__submit {
-  margin-top: 16px;
-  width: 100%;
-  padding: 12px;
-  font-size: 15px;
-}
-
-.authCard__submit:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.partner {
-  position: relative;
-  min-height: 100svh;
-  width: 100%;
-  overflow-x: hidden;
-  color: rgba(255, 255, 255, 0.98);
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
-}
-
-.partner__bg {
-  position: fixed;
-  inset: 0;
-  background: 
-    radial-gradient(circle at 20% 50%, rgba(0, 194, 255, 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 40% 20%, rgba(236, 72, 153, 0.08) 0%, transparent 50%),
-    linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
-  z-index: 0;
-}
-
-.partner__scrim {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  z-index: 1;
-}
-
-.partner__header {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 20px 24px;
-  flex-wrap: wrap;
-  background: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(10px);
-}
-
-.partner__backBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.9);
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.partner__backBtn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.25);
-  transform: translateY(-1px);
-}
-
-.partner__headerTitle {
-  flex: 1;
-  min-width: 0;
-}
-
-.partner__newBtn {
-  border: 1px solid rgba(0, 194, 255, 0.4);
-  background: linear-gradient(135deg, rgba(0, 194, 255, 0.15), rgba(0, 194, 255, 0.08));
-  color: rgba(255, 255, 255, 0.95);
-  border-radius: 12px;
-  padding: 12px 16px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 14px;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 2px 8px rgba(0, 194, 255, 0.2);
-}
-
-.partner__newBtn:hover {
-  background: linear-gradient(135deg, rgba(0, 194, 255, 0.25), rgba(0, 194, 255, 0.15));
-  border-color: rgba(0, 194, 255, 0.6);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 194, 255, 0.3);
-}
-
-.partner__title {
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
-  background: linear-gradient(135deg, #ffffff, #e0e7ff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.partner__subtitle {
-  font-size: 14px;
-  opacity: 0.85;
-  margin-top: 2px;
-}
-
-.partner__content {
-  position: relative;
-  z-index: 2;
-  padding: 24px;
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.partner__loading {
-  padding: 40px 0;
-  text-align: center;
-  opacity: 0.9;
-}
-
-.partner__error {
-  color: rgba(255, 255, 255, 0.95);
-  white-space: pre-line;
-  padding: 8px 0;
-  opacity: 0.95;
-}
-
-.partner__error--center {
-  padding: 40px 0;
-  text-align: center;
-}
-
-.partner__section {
-  margin-top: 28px;
-}
-
-.partner__places {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.partnerPlace {
-  display: flex;
-  gap: 16px;
-  padding: 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
-  cursor: pointer;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-}
-
-.partnerPlace:hover {
-  border-color: rgba(0, 194, 255, 0.4);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 194, 255, 0.15);
-}
-
-.partner__detailNav {
+/* Header */
+.page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
+  padding: var(--space-4) var(--space-6);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.partner__detailActions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.partner__editBtn {
+.back-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(0, 194, 255, 0.45);
-  background: rgba(0, 194, 255, 0.12);
-  color: rgba(255, 255, 255, 0.98);
-  cursor: pointer;
-  font-size: 15px;
-  font-weight: 600;
-  transition: background 160ms ease, border-color 160ms ease;
-}
-
-.partner__editBtn:hover:not(:disabled) {
-  background: rgba(0, 194, 255, 0.22);
-  border-color: rgba(0, 194, 255, 0.7);
-}
-
-.partner__editBtn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.partner__backToList {
-  margin-bottom: 0;
-}
-
-.partner__deleteBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(248, 113, 113, 0.45);
-  background: rgba(248, 113, 113, 0.12);
-  color: rgba(255, 255, 255, 0.98);
-  cursor: pointer;
-  font-size: 15px;
-  font-weight: 600;
-  transition: background 160ms ease, border-color 160ms ease;
-}
-
-.partner__deleteBtn:hover:not(:disabled) {
-  background: rgba(248, 113, 113, 0.22);
-  border-color: rgba(248, 113, 113, 0.7);
-}
-
-.partner__deleteBtn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.partner__clusters {
-  margin-top: 20px;
-}
-
-.partner__sectionTitle {
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 20px;
-  background: linear-gradient(135deg, #ffffff, #60a5fa);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  letter-spacing: -0.3px;
-}
-
-.partner__empty {
-  text-align: center;
-  opacity: 0.7;
-  padding: 40px 20px;
-  font-style: italic;
-}
-
-.partner__clusterList {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.partner__clusterItem {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
-  padding: 20px;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-}
-
-.partner__clusterItem:hover {
-  border-color: rgba(0, 194, 255, 0.4);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 194, 255, 0.15);
-}
-
-.partner__clusterInfo {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.partner__clusterPlaces {
-  margin-top: 16px;
-}
-
-.partner__clusterPlacesHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.partner__clusterPlacesTitle {
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   font-size: 14px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.partner__clusterPlacesCount {
-  font-size: 12px;
   font-weight: 500;
-  color: rgba(0, 194, 255, 0.8);
-  background: rgba(0, 194, 255, 0.1);
-  padding: 4px 8px;
-  border-radius: 12px;
-  border: 1px solid rgba(0, 194, 255, 0.2);
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
-.partner__emptyCluster {
+.back-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.page-header__center {
   text-align: center;
-  padding: 20px;
-  color: rgba(255, 255, 255, 0.6);
-  font-style: italic;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 8px;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
 }
 
-.partner__placesInCluster {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.partnerPlace--inCluster {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
-  padding: 12px;
-  transition: all 0.2s ease;
-  transform: translateX(0);
-}
-
-.partnerPlace--inCluster:hover {
-  border-color: rgba(0, 194, 255, 0.3);
-  transform: translateX(4px);
-  box-shadow: 0 4px 12px rgba(0, 194, 255, 0.1);
-}
-
-.partner__clusterTitle {
+.page-header__title {
   font-size: 18px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.95);
-  margin-bottom: 4px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
-.partner__clusterMeta {
-  font-size: 14px;
-  opacity: 0.8;
-  color: rgba(255, 255, 255, 0.85);
-  margin-bottom: 4px;
-}
-
-.partner__clusterStatus {
-  font-size: 12px;
-  opacity: 0.7;
-  color: rgba(0, 194, 255, 0.8);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.partner__createSection {
-  margin-bottom: 24px;
-}
-
-.placeDetailCard {
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.08);
-  overflow: hidden;
-}
-
-.placeDetailCard__img {
-  width: 100%;
-  height: 260px;
-  object-fit: cover;
-  display: block;
-}
-
-.placeDetailCard__body {
-  padding: 14px;
-}
-
-.placeDetailCard__title {
-  font-size: 20px;
-  font-weight: 800;
-}
-
-.placeDetailCard__meta {
-  opacity: 0.85;
-  margin-top: 4px;
-}
-
-.placeDetailCard__price {
-  margin-top: 8px;
-  color: rgba(0, 194, 255, 0.95);
-  font-weight: 800;
-}
-
-.placeDetailCard__desc {
-  margin-top: 10px;
-  line-height: 1.45;
-}
-
-.placeDetailCard__fact {
-  margin-top: 10px;
-  font-size: 14px;
-  opacity: 0.9;
-}
-
-.partnerPlace__img {
-  width: 80px;
-  height: 56px;
-  object-fit: cover;
-  border-radius: 10px;
-}
-
-.partnerPlace__body {
-  flex: 1;
-  min-width: 0;
-}
-
-.partnerPlace__name {
-  font-weight: 700;
-}
-
-.partnerPlace__meta {
+.page-header__subtitle {
   font-size: 13px;
-  opacity: 0.85;
-  margin-top: 2px;
+  color: var(--text-tertiary);
 }
 
-.partnerPlace__price {
+.page-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.header-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.header-btn:hover {
+  background: var(--bg-elevated);
+  border-color: var(--accent-border);
+}
+
+.logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.logout-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* Content */
+.page-content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: var(--space-6);
+}
+
+/* Auth */
+.auth-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  padding: var(--space-6);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+}
+
+.auth-tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.auth-tab {
+  flex: 1;
+  padding: var(--space-3);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.auth-tab--active {
+  color: var(--text-primary);
+  background: var(--accent-muted);
+  border-color: var(--accent-border);
+}
+
+.auth-error {
+  padding: var(--space-3);
+  margin-bottom: var(--space-4);
+  font-size: 13px;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-md);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.auth-input {
+  padding: var(--space-3) var(--space-4);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.auth-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.auth-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.auth-submit {
+  padding: var(--space-3) var(--space-4);
   font-size: 14px;
   font-weight: 600;
-  margin-top: 4px;
-  color: rgba(0, 194, 255, 0.9);
+  color: #000;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
-.createPlaceCard {
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
-  padding: 24px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+.auth-submit:hover:not(:disabled) {
+  background: var(--accent-light);
 }
 
-.createPlaceCard__title {
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 16px;
-  background: linear-gradient(135deg, #ffffff, #a5b4fc);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.auth-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-.createInput {
+/* States */
+.loading-state,
+.error-state,
+.empty-state {
+  padding: var(--space-10);
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.error-state {
+  color: #ef4444;
+}
+
+.empty-state p {
+  margin-bottom: var(--space-2);
+}
+
+/* Detail Section */
+.detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.detail-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.detail-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.action-btn {
+  padding: var(--space-2) var(--space-4);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.action-btn:hover:not(:disabled) {
+  background: var(--bg-elevated);
+}
+
+.action-btn--danger {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.action-btn--danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Forms */
+.form-card {
+  padding: var(--space-5);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+}
+
+.form-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-4);
+}
+
+.form-error {
+  padding: var(--space-3);
+  margin-bottom: var(--space-4);
+  font-size: 13px;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-md);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+.form-input {
   width: 100%;
-  margin-top: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.95);
-  padding: 14px 16px;
-  box-sizing: border-box;
-  font-size: 15px;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(10px);
-}
-
-.createInput:focus {
+  padding: var(--space-3) var(--space-4);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
   outline: none;
-  border-color: rgba(0, 194, 255, 0.5);
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 0 0 3px rgba(0, 194, 255, 0.1);
+  transition: all var(--transition-fast);
 }
 
-.createInput::placeholder {
-  color: rgba(255, 255, 255, 0.5);
+.form-input:focus {
+  border-color: var(--accent);
 }
 
-.createInput--textarea {
-  min-height: 86px;
+.form-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.form-input--textarea {
+  grid-column: 1 / -1;
+  min-height: 100px;
   resize: vertical;
 }
 
-.createPlaceCard__actions {
-  margin-top: 12px;
+.form-actions {
   display: flex;
-  gap: 10px;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
 }
 
+.submit-btn {
+  padding: var(--space-3) var(--space-5);
+  font-size: 14px;
+  font-weight: 600;
+  color: #000;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: var(--accent-light);
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cancel-btn {
+  padding: var(--space-3) var(--space-5);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.cancel-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+/* Place Detail Card */
+.place-detail-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.place-detail__image {
+  width: 100%;
+  height: 300px;
+  object-fit: cover;
+}
+
+.place-detail__body {
+  padding: var(--space-5);
+}
+
+.place-detail__title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.place-detail__meta {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-3);
+}
+
+.place-detail__price {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--accent-light);
+  margin-bottom: var(--space-4);
+}
+
+.place-detail__desc {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-3);
+}
+
+.place-detail__fact {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  padding: var(--space-3);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+/* Clusters */
+.clusters-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-4);
+}
+
+.clusters-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cluster-card {
+  padding: var(--space-5);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+}
+
+.cluster-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.cluster-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cluster-status {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  text-transform: uppercase;
+  padding: var(--space-1) var(--space-2);
+  background: var(--accent-muted);
+  border-radius: var(--radius-sm);
+}
+
+.cluster-meta {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-4);
+}
+
+.cluster-places {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.cluster-places__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.cluster-places__count {
+  padding: var(--space-1) var(--space-2);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+}
+
+.empty-cluster {
+  padding: var(--space-4);
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.places-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.place-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.place-item:hover {
+  border-color: var(--accent-border);
+  transform: translateX(4px);
+}
+
+.place-item__image {
+  width: 64px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.place-item__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.place-item__name {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.place-item__meta {
+  display: block;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.place-item__price {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  margin-top: var(--space-1);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .page-header {
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+  
+  .page-header__actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  
+  .page-content {
+    padding: var(--space-4);
+  }
+  
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .detail-nav {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
 </style>

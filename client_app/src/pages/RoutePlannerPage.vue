@@ -62,7 +62,6 @@ function addDaysUTC(dt: Date, days: number): Date {
 }
 
 const startDate = ref<string>(todayISODate())
-// Оставляем переменную `month` как computed, чтобы не переписывать логику сезонности.
 const month = computed<number>(() => parseISODateUTC(startDate.value).getUTCMonth() + 1)
 
 const endDate = computed<string>(() => {
@@ -122,7 +121,6 @@ const weatherError = ref<string>('')
 const apiError = ref<string>('')
 const generateLoading = ref(false)
 
-// 3D Tour state for route
 const show3DTour = ref(false)
 const currentTourPlace = ref<Place | null>(null)
 
@@ -145,11 +143,6 @@ function openClusterByPlaceId(placeId: string): void {
 }
 
 function weatherLabelFromCode(code: number): { label: string; isRainy: boolean } {
-  // Open-Meteo weather codes:
-  // 0 clear, 1-2 mainly clear/partly cloudy, 3 overcast,
-  // 45 fog, 48 depositing rime fog,
-  // 51-67 drizzle/rain, 71-77 snow, 80-82 rain showers, 85-86 snow showers,
-  // 95 thunderstorm, 96-99 thunderstorm with hail
   const isRainy =
     (code >= 51 && code <= 67) ||
     (code >= 71 && code <= 77) ||
@@ -235,7 +228,6 @@ async function fetchWeather(): Promise<void> {
   }
 }
 
-// Вау-блок: “дистанционный визит” (витрина на основе сгенерированного плана).
 const vauSelectedIndex = ref(0)
 
 const vauItems = computed(() => {
@@ -295,7 +287,6 @@ function travelerLabel(t: TravelerType): string {
 }
 
 function clusterKey(place: Place): string {
-  // id вида `${clusterId}-p1`
   return place.id.split('-')[0] ?? ''
 }
 
@@ -308,7 +299,6 @@ const clusterSeasonTags: Record<string, string[]> = {
   cl6: ['autumn', 'winter'],
 }
 
-// Кластеры, которые плохо подходят для конкретного сезона
 const clusterSeasonWorst: Record<string, string[]> = {
   cl1: ['winter'],
   cl2: ['winter'],
@@ -317,7 +307,6 @@ const clusterSeasonWorst: Record<string, string[]> = {
   cl6: ['spring', 'summer'],
 }
 
-// Outdoor-кластеры (штраф при дождях), indoor (бонус при дождях)
 const outdoorClusters = new Set(['cl1', 'cl2', 'cl5'])
 const indoorClusters = new Set(['cl3', 'cl4', 'cl6'])
 const clusterTypeTags: Record<string, string[]> = {
@@ -378,102 +367,6 @@ function buildCandidatesFromPlaces(places: Place[]) {
       },
     }
   })
-}
-
-// Скоринг места — синхронизирован с бэкендом (_score_candidate)
-function scorePlace(place: Place): number {
-  const t = travelerType.value
-  const season = monthToSeason(month.value)
-  const key = clusterKey(place)
-  const title = place.title.toLowerCase()
-  const location = place.location.toLowerCase()
-  let score = 0
-
-  // --- Сезонность (главный фактор, +40 / -25) ---
-  const best = clusterSeasonTags[key]
-  if (best) {
-    if (best.includes(season)) {
-      score += 40
-    } else {
-      const worst = clusterSeasonWorst[key] ?? []
-      if (worst.includes(season)) score -= 25
-    }
-  }
-
-  // --- Погода: учитываем дождливые дни поездки ---
-  const rainyDays = weatherByDay.value.filter((w) => w.isRainy).length
-  if (rainyDays > 0) {
-    if (outdoorClusters.has(key)) score -= rainyDays * 6
-    if (indoorClusters.has(key)) score += rainyDays * 5
-  }
-
-  // Под тип туриста
-  if (t === 'family') {
-    if (title.includes('дет')) score += 12
-    if (title.includes('пар')) score += 6
-    if (location.includes('интересно')) score += 4
-  }
-  if (t === 'elderly') {
-    if (title.includes('мягкий') || title.includes('неспеш') || title.includes('тих')) score += 12
-    if (location.includes('тих')) score += 8
-  }
-  if (t === 'digital') {
-    if (title.includes('работ') || title.includes('коворкин') || title.includes('вид')) score += 15
-    if (location.includes('кофе') || location.includes('терраса')) score += 6
-  }
-  if (t === 'gastro') {
-    if (title.includes('вино') || title.includes('дегуст') || title.includes('вкус') || title.includes('ремесла')) score += 15
-    if (location.includes('вкус') || location.includes('продукт')) score += 8
-  }
-  if (t === 'active') {
-    if (title.includes('маршрут') || title.includes('прогул') || title.includes('троп') || title.includes('паузы')) score += 12
-  }
-  if (t === 'eco') {
-    if (title.includes('природ') || title.includes('озер') || title.includes('лес') || title.includes('тропа')) score += 15
-    if (location.includes('зел')) score += 6
-  }
-
-  // База по рейтингу
-  score += Math.round(place.rating * 2)
-  return score
-}
-
-function slotForIndex(i: number): DaySlot {
-  if (i % 3 === 0) return 'Утро'
-  if (i % 3 === 1) return 'День'
-  return 'Вечер'
-}
-
-function whyForPlace(place: Place, dayIndex: number): string {
-  const season = monthToSeason(month.value)
-  const key = clusterKey(place)
-  const base = (() => {
-    if (season === 'summer') return 'в тёплый сезон особенно приятно гулять без спешки'
-    if (season === 'winter') return 'в холодный сезон важны уют и “смысловые” остановки'
-    if (season === 'spring') return 'весной ощущается свежесть и легко планировать короткие маршруты'
-    return 'осенью выигрывают атмосфера и погода для прогулок'
-  })()
-
-  const t = travelerType.value
-  const audience = (() => {
-    if (t === 'family') return 'подходит семье: спокойный темп и понятные сценарии'
-    if (t === 'elderly') return 'подходит тем, кому важны тишина и удобная логика передвижений'
-    if (t === 'digital') return 'хорошо для фокуса: вид, кофе и рабочий ритм'
-    if (t === 'gastro') return 'про вкус: дегустация/ремесло и “история” вокруг места'
-    if (t === 'active') return 'даёт движение: прогулки и короткие “точки-успеха”'
-    return 'про природу: вода/лес/тропа и ощущение “я перезагрузился(лась)”'
-  })()
-
-  const keyHint: Record<string, string> = {
-    cl1: 'мы поставили акцент на море рядом',
-    cl2: 'добавили зелёную паузу у воды',
-    cl3: 'оставили фокус на видовых остановках',
-    cl4: 'встроили вкусный сценарий с дегустацией',
-    cl5: 'включили семейный блок',
-    cl6: 'сделали маршрут менее “толповым”',
-  }
-
-  return `Выбранное место: “${place.title}”. ${keyHint[key] ?? 'под настроение'} — ${audience}. ${base}. День ${dayIndex + 1}.`
 }
 
 async function generate(): Promise<void> {
@@ -559,33 +452,6 @@ async function generate(): Promise<void> {
   stopTripPreviewAutoplay()
   isTripPreviewOpen.value = false
 }
-// (локальный fallback удалён — генерация через API)
-function _unusedLocalFallback_REMOVED() {
-  const places = props.routePlaces ?? []
-  const sorted = [...places].sort((a, b) => scorePlace(b) - scorePlace(a))
-  const dayBuckets: DayPlan[] = [
-    { dayIndex: 0, places: [] },
-    { dayIndex: 1, places: [] },
-    { dayIndex: 2, places: [] },
-  ]
-
-  sorted.forEach((p, i) => {
-    const dayIndex = i % 3
-    dayBuckets[dayIndex]!.places.push({
-      place: p,
-      slot: slotForIndex(i),
-      why: whyForPlace(p, dayIndex),
-    })
-  })
-
-  days.value = dayBuckets
-
-  const season = monthToSeason(month.value)
-  overallWhy.value = `ИИ-куратор: для ${travelerLabel(travelerType.value)} в ${season === 'winter' ? 'зимний' : season === 'spring' ? 'весенний' : season === 'summer' ? 'летний' : 'осенний'} период мы распределили места по дням так, чтобы сохранить темп, логичность и “вау”-атмосферу.`
-
-  // Всегда начинаем “виртуальный визит” с первого пункта плана.
-  vauSelectedIndex.value = 0
-}
 
 function logisticsForDay(day: DayPlan): { transport: string; stay: string; food: string } {
   const dayIndex = day.dayIndex
@@ -593,188 +459,55 @@ function logisticsForDay(day: DayPlan): { transport: string; stay: string; food:
   const t = travelerType.value
   const places = day.places.map((x) => x.place)
   const mainPlace = places[0]
-  const mainKey = mainPlace?.id.split('-')[0] ?? 'general'
-  const clusterKeys = Array.from(new Set(places.map((p) => p.id.split('-')[0] ?? '')))
-  const clusterHint = clusterKeys.length > 1 ? 'сбалансировали разные типы локаций' : 'держим единый ритм дня'
   const dayTone =
     dayIndex === 0 ? 'на старте' : dayIndex === 1 ? 'в основной день' : 'в финальной части'
-  const w = weatherByDay.value[dayIndex]
-  const variantSeed =
-    dayIndex +
-    (mainPlace?.title.length ?? 0) +
-    Math.round((w?.precipitationSum ?? 0) * 10) +
-    (w?.weatherCode ?? 0)
-  const pick = (arr: string[]) => arr[Math.abs(variantSeed) % arr.length] ?? arr[0] ?? ''
-  const weatherSuffix = w
-    ? w.isRainy
-      ? `план А/Б: ${w.label} и осадки (${w.precipitationSum} мм) — больше “внутренних” остановок, меньше долгих переходов`
-      : `похоже на удачный день: ${w.label} (осадки ${w.precipitationSum} мм) — больше прогулок`
-    : 'Погода загрузится после генерации'
 
   const seasonPack = (() => {
     if (season === 'summer') {
       return {
-        transport: `переезды короткие: больше пеших прогулок и “окна” под закаты (${dayTone})`,
-        food: 'пикники и лёгкие гастро-точки (фермерские продукты + местная кухня)',
-        stay: 'вечером — рядом с ключевыми локациями: меньше времени в дороге',
+        transport: `переезды короткие: больше пеших прогулок (${dayTone})`,
+        food: 'пикники и лёгкие гастро-точки',
+        stay: 'вечером — рядом с ключевыми локациями',
       }
     }
     if (season === 'winter') {
       return {
-        transport: `план — с запасом по времени: меньше долгих перемещений (${dayTone})`,
-        food: 'уютные остановки: тёплые дегустации и “домашняя” кухня',
-        stay: 'выбираем размещение ближе к активностям и с комфортным сервисом',
+        transport: `план с запасом по времени (${dayTone})`,
+        food: 'уютные остановки: тёплые дегустации',
+        stay: 'размещение ближе к активностям',
       }
     }
     if (season === 'spring') {
       return {
-        transport: `маршрут по “коротким лучам”: переходы между локациями удобны (${dayTone})`,
-        food: 'весенние вкусы: свежие продукты и локальные рынки',
-        stay: 'комфортный ночлег рядом, чтобы начинать день без спешки',
+        transport: `маршрут по "коротким лучам" (${dayTone})`,
+        food: 'весенние вкусы: свежие продукты',
+        stay: 'комфортный ночлег рядом',
       }
     }
     return {
-      transport: `мягкий темп: логистика под осеннюю погоду и виды (${dayTone})`,
-      food: 'вкусные остановки с историей: ремесло, вино, сезонные блюда',
-      stay: 'размещение, которое позволяет чаще возвращаться “в уют”',
+      transport: `мягкий темп под осеннюю погоду (${dayTone})`,
+      food: 'вкусные остановки с историей',
+      stay: 'размещение в уюте',
     }
   })()
 
-  const transportVariants = [
-    `${seasonPack.transport}; ${weatherSuffix}; ${clusterHint}.`,
-    `${weatherSuffix}; ${seasonPack.transport}; ${clusterHint}.`,
-    `${seasonPack.transport}. ${clusterHint}; ${weatherSuffix}.`,
-  ]
-
-  const stayByCluster: Record<string, string[]> = {
-    cl1: ['ближе к набережной', 'в районе моря и вечерних маршрутов'],
-    cl2: ['в тихой зоне у природы', 'рядом с прогулочными зонами'],
-    cl3: ['в точке с удобным ритмом дня', 'рядом с рабочими и обзорными локациями'],
-    cl4: ['рядом с дегустационными точками', 'в локации с короткими переездами между винными объектами'],
-    cl5: ['в семейно-спокойной зоне', 'рядом с локациями без долгих переходов'],
-    cl6: ['в спокойном районе без толпы', 'рядом с ремесленными точками'],
-    general: ['рядом с ключевыми локациями дня', 'в зоне с удобной логистикой'],
-  }
-  const stayHint = pick(stayByCluster[mainKey] ?? stayByCluster.general)
-
-  const foodBySeason: Record<string, string[]> = {
-    spring: ['сезонные локальные продукты и лёгкое меню', 'рынки и фермерские точки без спешки'],
-    summer: ['лёгкие блюда и прохладные остановки', 'гастро-точки с короткими паузами между прогулками'],
-    autumn: ['сезонные блюда и тёплые гастро-остановки', 'локальная кухня с акцентом на атмосферу'],
-    winter: ['тёплые форматы и уютные точки питания', 'комфортные остановки в помещении'],
-  }
-  const foodBase = pick(foodBySeason[season] ?? foodBySeason.spring)
-
-  if (t === 'family') {
-    return {
-      transport: pick(transportVariants),
-      stay: `семейное размещение ${stayHint}${mainPlace ? `, опорная точка — «${mainPlace.title}»` : ''}.`,
-      food: `${foodBase}; учитываем детские форматы и короткие сценарии${mainPlace ? ` вокруг «${mainPlace.title}»` : ''}.`,
-    }
-  }
-  if (t === 'elderly') {
-    return {
-      transport: pick(transportVariants),
-      stay: `размещение ${stayHint}${mainPlace ? `, ядро дня — «${mainPlace.title}»` : ''}, без долгих пересадок.`,
-      food: `${foodBase}; делаем остановки понятными и без спешки.`,
-    }
-  }
-  if (t === 'digital') {
-    return {
-      transport: pick(transportVariants),
-      stay: `ночлег ${stayHint}${mainPlace ? `, ключевая точка — «${mainPlace.title}»` : ''}, чтобы проще планировать рабочие блоки.`,
-      food: `${foodBase}; кофе/террасы используем как опорные точки.`,
-    }
-  }
-
   return {
-    transport: pick(transportVariants),
-    stay: `${pick([seasonPack.stay, `размещение ${stayHint}`])}${mainPlace ? ` Опорная точка: «${mainPlace.title}».` : ''}`,
-    food: `${foodBase}${mainPlace ? ` Ближе к району «${mainPlace.location}».` : ''}`,
+    transport: seasonPack.transport,
+    stay: `${seasonPack.stay}${mainPlace ? `, опорная точка — «${mainPlace.title}»` : ''}.`,
+    food: `${seasonPack.food}${mainPlace ? ` вокруг «${mainPlace.title}»` : ''}.`,
   }
-}
-
-function offerForPlace(place: Place): string {
-  const key = place.id.split('-')[0] ?? ''
-  const season = monthToSeason(month.value)
-
-  const seasonSuffix =
-    season === 'summer'
-      ? 'летний бонус'
-      : season === 'winter'
-        ? 'зимний уют'
-        : season === 'spring'
-          ? 'весенний пик'
-          : 'осеннее предложение'
-
-  const offersByCluster: Record<string, string[]> = {
-    cl1: ['закатный маршрут у моря', 'прогулка по набережной + чай', 'видовой сет у воды'],
-    cl2: ['тихая прогулка у воды', 'зелёная пауза и пикник', 'маршрут у озера без спешки'],
-    cl3: ['кофе + фокусный сценарий', 'рабочая терраса с видом', 'видовая точка и тихий ритм'],
-    cl4: ['дегустация со спецценой', 'вкусный сет локальных продуктов', 'история места + дегустация'],
-    cl5: ['семейный мастер-класс', 'детская активность + пауза', 'семейный сценарий без спешки'],
-    cl6: ['ремесленная история без толпы', 'тихий маршрут по станице', 'локальные мастерские и фото'],
-    general: ['персональный бонус', 'спокойный сценарий', 'локальный штрих'],
-  }
-
-  const variants = offersByCluster[key] ?? offersByCluster.general
-
-  const basis = `${place.id}|${place.title}|${seasonSuffix}`
-  let hash = 0
-  for (let i = 0; i < basis.length; i += 1) {
-    hash = (hash * 31 + basis.charCodeAt(i)) % 100000
-  }
-  const offer = variants[hash % variants.length] ?? variants[0] ?? 'персональный бонус'
-
-  return `Спецпредложение (${seasonSuffix}): ${offer}.`
-}
-
-function offerForDay(d: DayPlan): string {
-  const first = d.places[0]?.place
-  if (!first) return ''
-  return offerForPlace(first)
-}
-
-function osmEmbedUrlForPlace(place: Place): string {
-  const { lat, lon } = place.coordinates
-  const d = 0.06
-  const bbox = `${lon - d},${lat - d},${lon + d},${lat + d}`
-  const marker = encodeURIComponent(`${lat},${lon}`)
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${marker}`
-}
-
-function osmLinkUrlForPlace(place: Place): string {
-  const { lat, lon } = place.coordinates
-  return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=11/${lat}/${lon}`
-}
-
-function osmEmbedUrlForDay(d: DayPlan): string {
-  const first = d.places[0]?.place
-  if (!first) return ''
-  return osmEmbedUrlForPlace(first)
-}
-
-function osmLinkUrlForDay(d: DayPlan): string {
-  const first = d.places[0]?.place
-  if (!first) return ''
-  return osmLinkUrlForPlace(first)
 }
 
 const hasPlaces = computed(() => props.routePlaces.length > 0)
 const totalCost = computed(() => props.routePlaces.reduce((sum, p) => sum + p.cost, 0))
 
-// --- Leaflet карта маршрута ---
 const activeMapPointId = ref<string | null>(null)
 
 const mapPoints = computed<MapPoint[]>(() => {
   const pts: MapPoint[] = []
-  console.log('=== ROUTE PLANNER MAPPOINTS ===')
-  console.log('days.value.length:', days.value.length)
-  console.log('days.value:', days.value)
   
-  days.value.forEach((d, dayIndex) => {
-    console.log(`День ${dayIndex}, мест: ${d.places.length}`)
-    d.places.forEach((item, placeIndex) => {
+  days.value.forEach((d) => {
+    d.places.forEach((item) => {
       const mapPoint = {
         id: item.place.id,
         title: item.place.title,
@@ -788,17 +521,14 @@ const mapPoints = computed<MapPoint[]>(() => {
         photo: item.place.photo,
       }
       pts.push(mapPoint)
-      console.log(`  Место ${placeIndex}:`, mapPoint)
     })
   })
   
-  console.log('Итого mapPoints:', pts.length)
   return pts
 })
 
 function onMapSelectPoint(id: string): void {
   activeMapPointId.value = id
-  // Синхронизируем с TripPreview: ищем шаг по id
   for (let di = 0; di < days.value.length; di++) {
     const d = days.value[di]!
     for (let si = 0; si < d.places.length; si++) {
@@ -811,7 +541,6 @@ function onMapSelectPoint(id: string): void {
   }
 }
 
-// "Примерка поездки": интерактивный проигрыватель маршрута.
 const isTripPreviewOpen = ref(false)
 const previewDayIndex = ref(0)
 const previewStepIndex = ref(0)
@@ -825,7 +554,7 @@ function truncateText(s: string, maxLen: number): string {
   const str = (s ?? '').trim()
   if (!str) return ''
   if (str.length <= maxLen) return str
-  return str.slice(0, Math.max(0, maxLen - 1)).trimEnd() + '…'
+  return str.slice(0, Math.max(0, maxLen - 1)).trimEnd() + '...'
 }
 
 const previewWhyShort = computed(() => truncateText(previewStep.value?.why ?? '', 170))
@@ -865,7 +594,6 @@ function nextPreviewStep(): void {
     activeMapPointId.value = previewStep.value?.place.id ?? null
     return
   }
-  // Конец сценария — останавливаемся на последнем шаге.
   stopTripPreviewAutoplay()
 }
 
@@ -915,47 +643,43 @@ function stopTripPreviewAutoplay(): void {
 onBeforeUnmount(() => {
   stopTripPreviewAutoplay()
 })
-
 </script>
 
 <template>
-  <main class="planner" role="application" aria-label="Планировщик маршрута для туриста">
-    <div class="planner__bg" aria-hidden="true" />
-
-    <header class="planner__header">
-      <button type="button" class="planner__backBtn" @click="emit('back')">
-        <span aria-hidden="true">←</span>
-        <span>Назад</span>
+  <main class="planner">
+    <!-- Header -->
+    <header class="planner-header">
+      <button type="button" class="back-btn" @click="emit('back')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Назад
       </button>
-
-      <div class="planner__titleWrap">
-        <div class="planner__title">Маршрут для туриста</div>
-        <div class="planner__subtitle">ИИ-куратор: сезон + подход под ваш тип</div>
+      <div class="planner-header__center">
+        <h1 class="planner-header__title">Планировщик маршрута</h1>
+        <span class="planner-header__subtitle">ИИ-куратор подберёт оптимальный план</span>
       </div>
-
-      <div class="planner__meta">
-        <div class="planner__pill">Всего: {{ totalCost }} ₽</div>
+      <div class="planner-header__total">
+        <span class="total-badge">{{ totalCost.toLocaleString('ru-RU') }} ₽</span>
       </div>
     </header>
 
-    <section class="planner__content">
-      <div class="planner__controls">
-        <label class="planner__field">
-          <span class="planner__fieldLabel">Даты поездки</span>
+    <div class="planner-content">
+      <!-- Controls Panel -->
+      <section class="controls-panel">
+        <div class="control-group">
+          <label class="control-label">Дата начала</label>
           <input
             v-model="startDate"
-            class="planner__select"
             type="date"
-            aria-label="Дата начала поездки"
+            class="control-input"
           />
-          <span class="planner__fieldHint"
-            >Сезон: {{ seasonLabel }} • Длительность: 3 дня</span
-          >
-        </label>
+          <span class="control-hint">{{ seasonLabel }} / 3 дня</span>
+        </div>
 
-        <label class="planner__field">
-          <span class="planner__fieldLabel">Кто вы</span>
-          <select v-model="travelerType" class="planner__select" aria-label="Выбор типа туриста">
+        <div class="control-group">
+          <label class="control-label">Тип путешественника</label>
+          <select v-model="travelerType" class="control-input">
             <option value="family">Семья с детьми</option>
             <option value="elderly">Пенсионеры</option>
             <option value="digital">Фрилансер с ноутбуком</option>
@@ -963,277 +687,218 @@ onBeforeUnmount(() => {
             <option value="active">Активный отдых</option>
             <option value="eco">Эко/природа</option>
           </select>
-          <span class="planner__fieldHint">Подстройка под: {{ travelerLabel(travelerType) }}</span>
-        </label>
+          <span class="control-hint">{{ travelerLabel(travelerType) }}</span>
+        </div>
 
-        <div class="planner__actions">
+        <div class="control-actions">
           <button
             type="button"
-            class="planner__generateBtn"
+            class="generate-btn"
             :disabled="generateLoading"
             @click="generate"
           >
+            <svg v-if="!generateLoading" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.64 5.64l2.12 2.12m8.48 8.48l2.12 2.12M5.64 18.36l2.12-2.12m8.48-8.48l2.12-2.12"/>
+            </svg>
             {{ generateLoading ? 'Генерация...' : 'Сгенерировать маршрут' }}
           </button>
-          <div v-if="!hasPlaces" class="planner__actionsHint">
-            Без выбранных мест — автоматический подбор по предпочтениям.
-          </div>
+          <p v-if="!hasPlaces" class="control-note">
+            Без выбранных мест — автоподбор по предпочтениям
+          </p>
         </div>
-      </div>
+      </section>
 
-      <div v-if="generated" class="planner__result">
-        <div class="planner__resultHeader">
-          <div class="planner__resultTitle">
-            Результат на {{ startDateLabel }}–{{ endDateLabel }} • {{ travelerLabel(travelerType) }}
+      <!-- Results -->
+      <section v-if="generated" class="results-section">
+        <!-- Result Header -->
+        <div class="result-header">
+          <div class="result-meta">
+            <h2 class="result-title">{{ startDateLabel }} - {{ endDateLabel }}</h2>
+            <span class="result-traveler">{{ travelerLabel(travelerType) }}</span>
           </div>
-          <div class="planner__resultWhy">{{ overallWhy }}</div>
-          <button type="button" class="planner__previewBtn" @click="openTripPreview">
+          <p v-if="overallWhy" class="result-summary">{{ overallWhy }}</p>
+          <button type="button" class="preview-btn" @click="openTripPreview">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="5,3 19,12 5,21"/>
+            </svg>
             Примерить поездку
           </button>
         </div>
 
-        <section class="plannerWeather" aria-label="Прогноз погоды">
-          <div class="plannerWeather__title">Погода под ваш план</div>
-          <div class="plannerWeather__row" role="list" aria-label="Прогноз по дням">
-            <div
-              v-for="(w, idx) in weatherByDay"
-              :key="`w-${idx}`"
-              class="plannerWeather__day"
-              role="listitem"
-            >
-              <div class="plannerWeather__dayLabel">День {{ idx + 1 }}</div>
-              <div class="plannerWeather__temps">
-                {{ w.minTemp }}..{{ w.maxTemp }}°C
-              </div>
-              <div class="plannerWeather__desc">
-                {{ w.label }} • осадки {{ w.precipitationSum }} мм
-              </div>
+        <!-- Weather -->
+        <div v-if="weatherByDay.length" class="weather-section">
+          <h3 class="section-title">Прогноз погоды</h3>
+          <div class="weather-grid">
+            <div v-for="(w, idx) in weatherByDay" :key="idx" class="weather-card">
+              <span class="weather-day">День {{ idx + 1 }}</span>
+              <span class="weather-temp">{{ w.minTemp }}..{{ w.maxTemp }}°C</span>
+              <span class="weather-desc">{{ w.label }}</span>
+              <span class="weather-precip">{{ w.precipitationSum }} мм</span>
             </div>
           </div>
+          <p v-if="weatherError" class="weather-error">{{ weatherError }}</p>
+        </div>
 
-          <div v-if="weatherLoading" class="plannerWeather__status">Загружаем погоду...</div>
-          <div v-else-if="weatherError" class="plannerWeather__status">{{ weatherError }}</div>
-          <div v-else-if="!weatherByDay.length" class="plannerWeather__status">
-            Нажмите “Сгенерировать маршрут”, чтобы подгрузить погоду.
-          </div>
-          <div v-if="apiError" class="plannerWeather__status plannerWeather__status--error">{{ apiError }}</div>
-        </section>
+        <p v-if="apiError" class="api-error">{{ apiError }}</p>
 
-        <section v-if="vauItems.length" class="plannerVau" aria-label="Дистанционный визит (вау)">
-          <div class="plannerVau__header">Дистанционный визит</div>
-
-          <div v-if="vauActive" class="plannerVau__hero">
-            <img :src="vauActive.place.photo" class="plannerVau__heroImg" :alt="vauActive.place.title" />
-            <div class="plannerVau__heroOverlay" aria-hidden="true" />
-            <div class="plannerVau__heroText">
-              <div class="plannerVau__heroTitle">{{ vauActive.place.title }}</div>
-              <div class="plannerVau__heroMeta">
-                День {{ vauActive.dayIndex + 1 }} • {{ vauActive.slot }}
-              </div>
-              <div class="plannerVau__heroWhy">{{ vauActive.why }}</div>
-            </div>
-          </div>
-
-          <div class="plannerVau__thumbs" role="list" aria-label="Сменить объект визита">
-            <button
-              v-for="(it, idx) in vauItems"
-              :key="it.place.id + '-' + idx"
-              type="button"
-              class="plannerVau__thumb"
-              :class="{ 'plannerVau__thumb--active': idx === vauSelectedIndex }"
-              role="listitem"
-              :aria-label="'Показать: ' + it.place.title"
-              @click="vauSelectedIndex = idx"
-            >
-              <img :src="it.place.photo" class="plannerVau__thumbImg" :alt="it.place.title" />
-            </button>
-          </div>
-        </section>
-
-        <section v-if="mapPoints.length" class="plannerMapSection">
-          <div class="plannerMapSection__header">Карта вашего путешествия</div>
+        <!-- Map Section -->
+        <div v-if="mapPoints.length" class="map-section">
+          <h3 class="section-title">Карта путешествия</h3>
           <RouteMapSwitcher
             :points="mapPoints"
             :active-point-id="activeMapPointId"
             @select-point="onMapSelectPoint"
           />
-        </section>
+        </div>
 
-        <div class="plannerTimeline" role="list" aria-label="Маршрут по дням">
-          <section
-            v-for="d in days"
-            :key="d.dayIndex"
-            class="plannerDay"
-            role="listitem"
-            :aria-label="`День ${d.dayIndex + 1}`"
-          >
-            <div class="plannerDay__top">
-              <div class="plannerDay__label">День {{ d.dayIndex + 1 }}</div>
-              <div class="plannerDay__badge">{{ d.places.length }} места</div>
+        <!-- Days Timeline -->
+        <div v-if="days.length" class="days-grid">
+          <article v-for="d in days" :key="d.dayIndex" class="day-card">
+            <div class="day-header">
+              <h3 class="day-title">День {{ d.dayIndex + 1 }}</h3>
+              <span class="day-count">{{ d.places.length }} места</span>
             </div>
 
-            <div class="plannerDay__list">
-              <article
+            <div class="day-places">
+              <div
                 v-for="item in d.places"
                 :key="item.place.id"
-                class="plannerPlace"
-                :class="{ 'plannerPlace--active': activeMapPointId === item.place.id }"
+                class="place-card"
+                :class="{ 'place-card--active': activeMapPointId === item.place.id }"
                 @click="onMapSelectPoint(item.place.id)"
               >
-                <div class="plannerPlace__media">
-                  <img :src="item.place.photo" :alt="item.place.title" class="plannerPlace__img" />
-
-                  <!-- 3D Tour Button -->
+                <div class="place-image-wrap">
+                  <img :src="item.place.photo" :alt="item.place.title" class="place-img" />
                   <button
                     v-if="has3DTour(item.place)"
                     type="button"
-                    class="plannerPlace__3dBtn"
+                    class="place-tour-btn"
                     @click.stop="start3DTour(item.place)"
                   >
-                    <span class="plannerPlace__3dBtnIcon">🎯</span>
-                    <span>3D тур</span>
+                    3D
                   </button>
                 </div>
-
-                <div class="plannerPlace__body">
-                  <div class="plannerPlace__row">
-                    <div class="plannerPlace__title">{{ item.slot }} • {{ item.place.title }}</div>
-                    <div class="plannerPlace__cost">{{ item.place.cost }} ₽</div>
-                  </div>
-                  <div class="plannerPlace__loc">{{ item.place.location }}</div>
-                  <div class="plannerPlace__why">{{ item.why }}</div>
-                  <div class="plannerPlace__actions">
+                <div class="place-info">
+                  <div class="place-slot">{{ item.slot }}</div>
+                  <h4 class="place-title">{{ item.place.title }}</h4>
+                  <p class="place-location">{{ item.place.location }}</p>
+                  <p class="place-why">{{ item.why }}</p>
+                  <div class="place-footer">
+                    <span class="place-price">{{ item.place.cost.toLocaleString('ru-RU') }} ₽</span>
                     <button
                       type="button"
-                      class="plannerPlace__moreBtn"
+                      class="place-more-btn"
                       @click.stop="openClusterByPlaceId(item.place.id)"
                     >
-                      Читать далее
+                      Подробнее
                     </button>
                   </div>
                 </div>
-              </article>
+              </div>
             </div>
 
             <div
-              class="plannerDay__logistics"
+              class="day-logistics"
               :ref="setLogisticsRef(d.dayIndex)"
-              :style="{ height: logisticsHeight ? `${logisticsHeight}px` : 'auto' }"
             >
-              <div class="plannerDay__logTitle">Логистика дня</div>
-              <div class="plannerDay__logLine">
-                <span class="plannerDay__logKey">Транспорт:</span>
-                <span class="plannerDay__logVal">{{ logisticsForDay(d).transport }}</span>
+              <h4 class="logistics-title">Логистика</h4>
+              <div class="logistics-row">
+                <span class="logistics-label">Транспорт</span>
+                <span class="logistics-value">{{ logisticsForDay(d).transport }}</span>
               </div>
-              <div class="plannerDay__logLine">
-                <span class="plannerDay__logKey">Ночлег:</span>
-                <span class="plannerDay__logVal">{{ logisticsForDay(d).stay }}</span>
+              <div class="logistics-row">
+                <span class="logistics-label">Ночлег</span>
+                <span class="logistics-value">{{ logisticsForDay(d).stay }}</span>
               </div>
-              <div class="plannerDay__logLine">
-                <span class="plannerDay__logKey">Питание:</span>
-                <span class="plannerDay__logVal">{{ logisticsForDay(d).food }}</span>
+              <div class="logistics-row">
+                <span class="logistics-label">Питание</span>
+                <span class="logistics-value">{{ logisticsForDay(d).food }}</span>
               </div>
-
-              <div v-if="offerForDay(d)" class="plannerDay__offer">
-                {{ offerForDay(d) }}
-              </div>
-
-
             </div>
-          </section>
+          </article>
         </div>
+      </section>
+    </div>
 
-        <div class="planner__mapHint">
-          Карта показывает ключевые точки дня.
-        </div>
-      </div>
-    </section>
-
-    <div v-if="isTripPreviewOpen" class="tripPreview" role="dialog" aria-modal="true">
-      <div class="tripPreview__card">
-        <div class="tripPreview__header">
-          <div class="tripPreview__title">Примерка поездки</div>
-          <div class="tripPreview__controls">
-            <button type="button" class="tripPreview__ctrlBtn" @click="toggleTripPreviewAutoplay">
+    <!-- Trip Preview Modal -->
+    <div v-if="isTripPreviewOpen" class="preview-modal" @click="closeTripPreview">
+      <div class="preview-modal__content" @click.stop>
+        <div class="preview-modal__header">
+          <h2 class="preview-modal__title">Примерка поездки</h2>
+          <div class="preview-modal__controls">
+            <button type="button" class="preview-ctrl-btn" @click="toggleTripPreviewAutoplay">
               {{ previewAutoplay ? 'Пауза' : 'Автоплей' }}
             </button>
-            <button type="button" class="tripPreview__ctrlBtn" @click="closeTripPreview">Закрыть</button>
+            <button type="button" class="preview-ctrl-btn preview-ctrl-btn--close" @click="closeTripPreview">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
           </div>
         </div>
 
-        <div class="tripPreview__days">
+        <div class="preview-days">
           <button
             v-for="d in days"
             :key="'pday-' + d.dayIndex"
             type="button"
-            class="tripPreview__dayBtn"
-            :class="{ 'tripPreview__dayBtn--active': d.dayIndex === previewDayIndex }"
+            class="preview-day-btn"
+            :class="{ 'preview-day-btn--active': d.dayIndex === previewDayIndex }"
             @click="selectPreviewDay(d.dayIndex)"
           >
             День {{ d.dayIndex + 1 }}
           </button>
         </div>
 
-        <div class="tripPreview__progressWrap">
-          <div class="tripPreview__progress" :style="{ width: `${previewProgress}%` }" />
+        <div class="preview-progress">
+          <div class="preview-progress__bar" :style="{ width: `${previewProgress}%` }"></div>
         </div>
 
-        <transition name="tripPreviewStepFade" mode="out-in">
-          <div
-            v-if="previewStep"
-            :key="`preview-${previewDayIndex}-${previewStepIndex}`"
-            class="tripPreview__body"
-          >
-            <img :src="previewStep.place.photo" :alt="previewStep.place.title" class="tripPreview__img" />
-            <div class="tripPreview__info">
-              <div class="tripPreview__meta">
-                День {{ previewDayIndex + 1 }} • {{ previewStep.slot }} • Шаг {{ previewStepIndex + 1 }}
-              </div>
-              <div class="tripPreview__place">{{ previewStep.place.title }}</div>
-              <div class="tripPreview__why">{{ previewWhyShort }}</div>
-              <div class="tripPreview__loc">{{ previewLogisticsShort }}</div>
-              <div v-if="osmEmbedUrlForPlace(previewStep.place)" class="tripPreview__map">
-                <iframe
-                  :src="osmEmbedUrlForPlace(previewStep.place)"
-                  class="tripPreview__mapFrame"
-                  loading="lazy"
-                  referrerpolicy="no-referrer"
-                  aria-label="Мини-карта текущей точки"
-                />
-              </div>
-              <a
-                class="tripPreview__mapLink"
-                :href="osmLinkUrlForPlace(previewStep.place)"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Открыть точку на карте
-              </a>
+        <transition name="fade" mode="out-in">
+          <div v-if="previewStep" :key="`${previewDayIndex}-${previewStepIndex}`" class="preview-body">
+            <img :src="previewStep.place.photo" :alt="previewStep.place.title" class="preview-image" />
+            <div class="preview-info">
+              <span class="preview-meta">День {{ previewDayIndex + 1 }} / {{ previewStep.slot }}</span>
+              <h3 class="preview-place">{{ previewStep.place.title }}</h3>
+              <p class="preview-why">{{ previewWhyShort }}</p>
+              <p v-if="previewLogisticsShort" class="preview-logistics">{{ previewLogisticsShort }}</p>
             </div>
           </div>
         </transition>
 
-        <div class="tripPreview__footer">
-          <button type="button" class="tripPreview__ctrlBtn" @click="prevPreviewStep">◀ Назад</button>
-          <button type="button" class="tripPreview__ctrlBtn" @click="nextPreviewStep">Дальше ▶</button>
+        <div class="preview-nav">
+          <button type="button" class="preview-nav-btn" @click="prevPreviewStep">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Назад
+          </button>
+          <button type="button" class="preview-nav-btn" @click="nextPreviewStep">
+            Далее
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </button>
         </div>
       </div>
     </div>
 
     <!-- 3D Tour Modal -->
-    <div v-if="show3DTour && currentTourPlace" class="tourModal" @click="close3DTour">
-      <div class="tourModal__content" @click.stop>
-        <div class="tourModal__header">
-          <h3 class="tourModal__title">{{ currentTourPlace.title }}</h3>
-          <button type="button" class="tourModal__close" @click="close3DTour">×</button>
+    <div v-if="show3DTour && currentTourPlace" class="tour-modal" @click="close3DTour">
+      <div class="tour-modal__content" @click.stop>
+        <div class="tour-modal__header">
+          <h3 class="tour-modal__title">{{ currentTourPlace.title }}</h3>
+          <button type="button" class="tour-modal__close" @click="close3DTour">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
         </div>
-        <div class="tourModal__body">
+        <div class="tour-modal__body">
           <AvalinViewer
             :tour-url="currentTourPlace.avalinTourUrl"
             :title="currentTourPlace.title"
             height="500px"
-            @tour-started="() => console.log('3D тур маршрута начат')"
-            @tour-ended="() => console.log('3D тур маршрута завершен')"
           />
         </div>
       </div>
@@ -1243,896 +908,746 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .planner {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  color: rgba(255, 255, 255, 0.98);
-  overflow: auto;
-  background:
-    radial-gradient(1200px 600px at 10% 5%, rgba(0, 194, 255, 0.28), transparent 55%),
-    linear-gradient(
-      180deg,
-      rgba(0, 0, 0, 0.52) 0%,
-      rgba(0, 0, 0, 0.65) 65%,
-      rgba(0, 0, 0, 0.75) 100%
-    );
+  min-height: 100vh;
+  background: var(--bg-primary);
 }
 
-.planner__bg {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.planner__header {
-  position: sticky;
-  top: 0;
-  z-index: 2;
+/* Header */
+.planner-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 18px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(10px);
+  padding: var(--space-4) var(--space-6);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
 
-.planner__backBtn {
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.95);
-  border-radius: 14px;
-  padding: 10px 12px;
-  cursor: pointer;
+.back-btn {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
-.planner__titleWrap {
-  flex: 1;
-  min-width: 0;
+.back-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.planner-header__center {
   text-align: center;
 }
 
-.planner__title {
-  font-weight: 1000;
-  letter-spacing: 0.2px;
+.planner-header__title {
   font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
-.planner__subtitle {
-  opacity: 0.85;
-  margin-top: 4px;
+.planner-header__subtitle {
   font-size: 13px;
+  color: var(--text-tertiary);
 }
 
-.planner__meta {
-  width: 160px;
-  display: flex;
-  justify-content: flex-end;
+.total-badge {
+  padding: var(--space-2) var(--space-4);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-light);
+  background: var(--accent-muted);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-md);
 }
 
-.planner__pill {
-  border-radius: 999px;
-  padding: 10px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(0, 0, 0, 0.22);
-  font-weight: 900;
-}
-
-.planner__content {
-  padding: 18px 16px 34px;
-  width: min(1100px, 100%);
+/* Content */
+.planner-content {
+  max-width: 1200px;
   margin: 0 auto;
+  padding: var(--space-6);
 }
 
-.planner__controls {
+/* Controls */
+.controls-panel {
   display: grid;
-  grid-template-columns: 1.1fr 1fr;
-  gap: 14px;
-  align-items: start;
-  padding: 14px;
-  border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(10px);
+  grid-template-columns: 1fr 1fr auto;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  margin-bottom: var(--space-6);
 }
 
-.planner__field {
+.control-group {
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  gap: var(--space-2);
 }
 
-.planner__fieldLabel {
-  display: block;
-  font-weight: 950;
-  font-size: 13px;
-  opacity: 0.95;
-  margin-bottom: 8px;
-}
-
-
-
-.planner__select {
-  width: 100%;
-  height: 46px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(0, 0, 0, 0.26);
-  color: rgba(255, 255, 255, 0.98);
-  outline: none;
-  box-sizing: border-box;
-  min-width: 0;
-}
-
-.planner__fieldHint {
-  margin-top: 8px;
-  display: block;
+.control-label {
   font-size: 12px;
-  opacity: 0.85;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.planner__actions {
-  grid-column: 1 / -1;
+.control-input {
+  padding: var(--space-3) var(--space-4);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  outline: none;
+}
+
+.control-input:focus {
+  border-color: var(--accent);
+}
+
+.control-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.control-actions {
   display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  justify-content: center;
+}
+
+.generate-btn {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.planner__generateBtn {
-  flex: 1;
-  border-radius: 18px;
-  border: 1px solid rgba(0, 194, 255, 0.5);
-  background: rgba(0, 194, 255, 0.12);
-  color: rgba(255, 255, 255, 0.98);
-  padding: 14px 16px;
-  font-weight: 1000;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-6);
+  font-size: 14px;
+  font-weight: 600;
+  color: #000;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+  transition: all var(--transition-fast);
 }
 
-.planner__generateBtn:disabled {
-  opacity: 0.55;
+.generate-btn:hover:not(:disabled) {
+  background: var(--accent-light);
+}
+
+.generate-btn:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
-.planner__generateBtn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  border-color: rgba(0, 194, 255, 0.75);
-  background: rgba(0, 194, 255, 0.18);
-}
-
-.planner__actionsHint {
-  width: 280px;
-  opacity: 0.85;
-  font-size: 13px;
-}
-
-.planner__result {
-  margin-top: 16px;
-}
-
-.planner__resultHeader {
-  padding: 16px 14px;
-  border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.planner__resultTitle {
-  font-weight: 1000;
-  font-size: 18px;
-  letter-spacing: 0.2px;
-}
-
-.planner__resultWhy {
-  margin-top: 8px;
-  opacity: 0.88;
-  line-height: 1.4;
-}
-
-.planner__previewBtn {
-  margin-top: 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(0, 194, 255, 0.55);
-  background: rgba(0, 194, 255, 0.14);
-  color: rgba(255, 255, 255, 0.98);
-  padding: 8px 12px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.plannerTimeline {
-  margin-top: 24px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  align-items: start;
-}
-
-.plannerMapSection {
-  margin-top: 24px;
-  border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-  padding: 14px;
-}
-
-.plannerMapSection__header {
-  font-weight: 1000;
-  letter-spacing: 0.2px;
-  margin-bottom: 14px;
-}
-
-.plannerDay {
-  border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-}
-
-.plannerDay__top {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 4px 6px 12px;
-}
-
-.plannerDay__label {
-  font-weight: 1000;
-  letter-spacing: 0.2px;
-}
-
-.plannerDay__badge {
-  font-size: 13px;
-  opacity: 0.85;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
-  padding: 8px 10px;
-  background: rgba(0, 0, 0, 0.18);
-}
-
-.plannerDay__list {
-  display: grid;
-  gap: 10px;
-  align-content: start;
-}
-
-.plannerPlace {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 12px;
-  padding: 10px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(0, 0, 0, 0.18);
-  cursor: pointer;
-  transition: transform 160ms ease, border-color 160ms ease;
-  height: 320px;
-  overflow: hidden;
-}
-
-.plannerPlace:hover {
-  transform: translateX(4px);
-  border-color: rgba(255, 255, 255, 0.25);
-}
-
-.plannerPlace--active {
-  border-color: rgba(0, 194, 255, 0.65);
-  background: rgba(0, 194, 255, 0.08);
-  box-shadow: 0 0 20px rgba(0, 194, 255, 0.15);
-}
-
-.plannerPlace__img {
-  width: 100px;
-  height: 74px;
-  border-radius: 14px;
-  object-fit: cover;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-}
-
-.plannerPlace__body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.plannerPlace__row {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  gap: 6px;
-}
-
-.plannerPlace__title {
-  font-weight: 1000;
-  line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-.plannerPlace__cost {
-  font-weight: 1000;
-  white-space: nowrap;
-  align-self: flex-start;
-}
-
-.plannerPlace__loc {
-  opacity: 0.88;
+.control-note {
   font-size: 12px;
-  margin-top: 5px;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.plannerPlace__why {
-  margin-top: 8px;
-  font-size: 13px;
-  opacity: 0.92;
-  line-height: 1.35;
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.plannerPlace__actions {
-  margin-top: auto;
-  display: flex;
-  justify-content: flex-start;
-}
-
-.plannerPlace__moreBtn {
-  border-radius: 12px;
-  border: 1px solid rgba(0, 194, 255, 0.5);
-  background: rgba(0, 194, 255, 0.12);
-  color: rgba(255, 255, 255, 0.98);
-  padding: 8px 12px;
-  font-weight: 800;
-  cursor: pointer;
-  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
-}
-
-.plannerPlace__moreBtn:hover {
-  transform: translateY(-1px);
-  border-color: rgba(0, 194, 255, 0.8);
-  background: rgba(0, 194, 255, 0.2);
-}
-
-.planner__mapHint {
-  margin-top: 16px;
-  opacity: 0.85;
-  font-size: 13px;
+  color: var(--text-tertiary);
   text-align: center;
 }
 
-.tripPreview {
-  position: fixed;
-  inset: 0;
-  z-index: 80;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(6px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 14px;
-}
-
-.tripPreview__card {
-  width: min(980px, 100%);
-  max-height: 88vh;
-  overflow: auto;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(20, 22, 30, 0.9);
-  padding: 14px;
-}
-
-.tripPreview__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-}
-
-.tripPreview__title {
-  font-weight: 900;
-  font-size: 18px;
-}
-
-.tripPreview__controls {
-  display: flex;
-  gap: 8px;
-}
-
-.tripPreview__ctrlBtn {
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.98);
-  padding: 7px 10px;
-  cursor: pointer;
-}
-
-.tripPreview__days {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.tripPreview__dayBtn {
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.96);
-  padding: 6px 10px;
-  cursor: pointer;
-}
-
-.tripPreview__dayBtn--active {
-  border-color: rgba(0, 194, 255, 0.8);
-  background: rgba(0, 194, 255, 0.18);
-}
-
-.tripPreview__progressWrap {
-  margin-top: 12px;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  overflow: hidden;
-}
-
-.tripPreview__progress {
-  height: 100%;
-  background: linear-gradient(90deg, #00c2ff, #71d9ff);
-  transition: width 280ms ease;
-}
-
-.tripPreview__body {
-  margin-top: 12px;
-  display: grid;
-  grid-template-columns: 1.1fr 1fr;
-  gap: 12px;
-}
-
-.tripPreview__img {
-  width: 100%;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  object-fit: cover;
-  height: 280px;
-}
-
-.tripPreview__map {
-  margin-top: 10px;
-}
-
-.tripPreview__mapFrame {
-  width: 100%;
-  height: 170px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 14px;
-  display: block;
-}
-
-.tripPreview__info {
+/* Results */
+.results-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-6);
 }
 
-.tripPreview__meta { opacity: 0.86; font-size: 13px; }
-.tripPreview__place { font-size: 20px; font-weight: 900; }
-.tripPreview__why { line-height: 1.45; opacity: 0.96; }
-.tripPreview__loc { opacity: 0.85; font-size: 13px; }
-
-.tripPreview__mapLink {
-  margin-top: 8px;
-  color: #8fe6ff;
-  text-decoration: none;
+.result-header {
+  padding: var(--space-5);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
 }
 
-.tripPreview__footer {
-  margin-top: 12px;
+.result-meta {
   display: flex;
-  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
 }
 
-.tripPreviewStepFade-enter-active,
-.tripPreviewStepFade-leave-active {
-  transition: opacity 180ms ease, transform 180ms ease;
-}
-
-.tripPreviewStepFade-enter-from,
-.tripPreviewStepFade-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
-
-.plannerVau {
-  margin-top: 14px;
-  border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-  padding: 14px;
-}
-
-.plannerVau__header {
-  font-weight: 1000;
-  letter-spacing: 0.2px;
-  margin-bottom: 10px;
-}
-
-.plannerVau__hero {
-  position: relative;
-  overflow: hidden;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  min-height: 320px;
-}
-
-.plannerVau__heroImg {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  transform: scale(1.02);
-}
-
-.plannerVau__heroOverlay {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(1200px 450px at 20% 10%, rgba(0, 194, 255, 0.35), transparent 55%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.06) 0%, rgba(0, 0, 0, 0.74) 90%);
-}
-
-.plannerVau__heroText {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 16px;
-  gap: 8px;
-}
-
-.plannerVau__heroTitle {
-  font-weight: 1000;
+.result-title {
   font-size: 20px;
-  letter-spacing: 0.2px;
-  text-shadow: 0 20px 80px rgba(0, 0, 0, 0.55);
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
-.plannerVau__heroMeta {
-  opacity: 0.9;
-  font-size: 13px;
+.result-traveler {
+  font-size: 14px;
+  color: var(--accent);
+  padding: var(--space-1) var(--space-3);
+  background: var(--accent-muted);
+  border-radius: var(--radius-full);
 }
 
-.plannerVau__heroWhy {
-  opacity: 0.95;
-  font-size: 13px;
-  line-height: 1.35;
+.result-summary {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-4);
 }
 
-.plannerVau__thumbs {
-  display: flex;
-  gap: 10px;
-  overflow: auto;
-  padding-top: 12px;
-}
-
-.plannerVau__thumb {
-  flex: 0 0 auto;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 14px;
-  padding: 6px;
+.preview-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+  transition: all var(--transition-fast);
 }
 
-.plannerVau__thumb:hover {
-  transform: translateY(-2px);
-  border-color: rgba(0, 194, 255, 0.55);
+.preview-btn:hover {
+  background: var(--bg-elevated);
+  border-color: var(--accent-border);
 }
 
-.plannerVau__thumb--active {
-  border-color: rgba(0, 194, 255, 0.85);
-  background: rgba(0, 194, 255, 0.12);
+/* Weather */
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-4);
 }
 
-.plannerVau__thumbImg {
-  width: 96px;
-  height: 64px;
-  object-fit: cover;
-  display: block;
-  border-radius: 10px;
+.weather-section {
+  padding: var(--space-5);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
 }
 
-.plannerDay__logistics {
-  margin-top: 12px;
-  padding: 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.03);
+.weather-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+.weather-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
 }
 
-.plannerDay__logTitle {
-  font-weight: 1000;
-  margin-bottom: 8px;
-  letter-spacing: 0.2px;
+.weather-day {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
 }
 
-.plannerDay__logLine {
+.weather-temp {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.weather-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.weather-precip {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.weather-error, .api-error {
+  font-size: 13px;
+  color: #ef4444;
+  margin-top: var(--space-2);
+}
+
+/* Map */
+.map-section {
+  padding: var(--space-5);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+}
+
+/* Days Grid */
+.days-grid {
   display: grid;
-  grid-template-columns: minmax(86px, 120px) minmax(0, 1fr);
-  column-gap: 10px;
-  row-gap: 6px;
-  margin-bottom: 6px;
-  align-items: start;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+}
+
+.day-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.day-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.day-count {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  padding: var(--space-1) var(--space-2);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-full);
+}
+
+.day-places {
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.place-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.place-card:hover {
+  border-color: var(--border-default);
+}
+
+.place-card--active {
+  border-color: var(--accent-border);
+  background: var(--accent-muted);
+}
+
+.place-image-wrap {
+  position: relative;
+  aspect-ratio: 16/9;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.place-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.place-tour-btn {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.place-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.place-slot {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.place-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
   line-height: 1.3;
 }
 
-.plannerDay__logKey {
-  font-weight: 1000;
-  opacity: 0.95;
-  white-space: nowrap;
-}
-
-.plannerDay__logVal {
-  opacity: 0.92;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  hyphens: auto;
-}
-
-.plannerDay__offer {
-  margin-top: 10px;
-  font-weight: 1000;
-  opacity: 0.95;
-}
-
-.plannerWeather {
-  margin-top: 14px;
-  border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.03);
-  padding: 14px;
-}
-
-.plannerWeather__title {
-  font-weight: 1000;
-  letter-spacing: 0.2px;
-  margin-bottom: 10px;
-}
-
-.plannerWeather__row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.plannerWeather__day {
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.16);
-  padding: 10px;
-}
-
-.plannerWeather__dayLabel {
-  font-weight: 1000;
-  opacity: 0.95;
-  font-size: 13px;
-  margin-bottom: 6px;
-}
-
-.plannerWeather__temps {
-  font-weight: 1000;
-  font-size: 16px;
-}
-
-.plannerWeather__desc {
-  opacity: 0.88;
+.place-location {
   font-size: 12px;
-  line-height: 1.35;
-  margin-top: 6px;
+  color: var(--text-tertiary);
 }
 
-.plannerWeather__status {
-  margin-top: 10px;
-  opacity: 0.9;
-}
-.plannerWeather__status--error {
-  color: #ff9a9a;
-  font-size: 13px;
-}
-
-.plannerDay__map {
-  margin-top: 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  overflow: hidden;
-  background: rgba(0, 0, 0, 0.14);
-}
-
-.plannerDay__mapFrame {
-  width: 100%;
-  height: 210px;
-  border: 0;
-  display: block;
-}
-
-.plannerDay__mapLink {
-  display: block;
-  padding: 10px 12px;
-  color: rgba(255, 255, 255, 0.95);
-  text-decoration: underline;
-  opacity: 0.9;
-  font-size: 13px;
-}
-
-/* 3D Tour Styles */
-.plannerPlace__media {
-  position: relative;
-  width: 100%;
-  height: 160px;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.plannerPlace__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.plannerPlace__3dBtn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 16px;
-  padding: 6px 12px;
-  color: white;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  transition: all 0.3s ease;
-}
-
-.plannerPlace__3dBtn:hover {
-  background: rgba(0, 0, 0, 0.8);
-  border-color: rgba(255, 255, 255, 0.3);
-  transform: translateY(-1px);
-}
-
-.plannerPlace__3dBtnIcon {
+.place-why {
   font-size: 12px;
-}
-
-.tourModal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(10px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 20px;
-}
-
-.tourModal__content {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 20px;
-  max-width: 900px;
-  width: 100%;
-  max-height: 90vh;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  box-shadow: 0 25px 100px rgba(0, 0, 0, 0.5);
 }
 
-.tourModal__header {
+.place-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(10px);
+  margin-top: var(--space-2);
 }
 
-.tourModal__title {
-  color: white;
-  font-size: 20px;
-  font-weight: 700;
-  margin: 0;
+.place-price {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-light);
 }
 
-.tourModal__close {
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  color: white;
-  font-size: 20px;
-  font-weight: 700;
+.place-more-btn {
+  padding: var(--space-1) var(--space-2);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
   cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.place-more-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+/* Logistics */
+.day-logistics {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+}
+
+.logistics-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-3);
+}
+
+.logistics-row {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.logistics-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  min-width: 80px;
+}
+
+.logistics-value {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Preview Modal */
+.preview-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
+  padding: var(--space-6);
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
 }
 
-.tourModal__close:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: scale(1.1);
+.preview-modal__content {
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
 }
 
-.tourModal__body {
-  padding: 24px;
+.preview-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-@media (max-width: 1280px) {
-  .plannerTimeline {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.preview-modal__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
-@media (max-width: 980px) {
-  .planner__controls {
+.preview-modal__controls {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.preview-ctrl-btn {
+  padding: var(--space-2) var(--space-3);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.preview-ctrl-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.preview-ctrl-btn--close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2);
+}
+
+.preview-days {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+}
+
+.preview-day-btn {
+  padding: var(--space-2) var(--space-3);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.preview-day-btn--active {
+  color: var(--text-primary);
+  background: var(--accent-muted);
+  border-color: var(--accent-border);
+}
+
+.preview-progress {
+  height: 4px;
+  background: var(--bg-tertiary);
+  margin: 0 var(--space-5);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.preview-progress__bar {
+  height: 100%;
+  background: var(--accent);
+  transition: width 200ms ease;
+}
+
+.preview-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+  padding: var(--space-5);
+}
+
+.preview-image {
+  width: 100%;
+  aspect-ratio: 4/3;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+}
+
+.preview-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.preview-meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+
+.preview-place {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.preview-why {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.preview-logistics {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.preview-nav {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.preview-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.preview-nav-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+/* Tour Modal */
+.tour-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+}
+
+.tour-modal__content {
+  width: 100%;
+  max-width: 900px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.tour-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tour-modal__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tour-modal__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.tour-modal__body {
+  padding: var(--space-4);
+}
+
+/* Animations */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 200ms ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .controls-panel {
     grid-template-columns: 1fr;
   }
-
-  .planner__actions {
-    flex-direction: column;
-    align-items: stretch;
+  
+  .days-grid {
+    grid-template-columns: 1fr;
   }
-
-  .planner__actionsHint {
-    width: auto;
-  }
-
-  .plannerTimeline {
+  
+  .preview-body {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 700px) {
-  .plannerDay__logLine {
-    grid-template-columns: 1fr;
+@media (max-width: 640px) {
+  .planner-content {
+    padding: var(--space-4);
   }
-
-  .plannerDay__logKey {
-    white-space: normal;
+  
+  .planner-header {
+    padding: var(--space-3) var(--space-4);
+  }
+  
+  .planner-header__title {
+    font-size: 16px;
+  }
+  
+  .weather-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>
