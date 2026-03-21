@@ -8,7 +8,7 @@ from pydantic import AnyUrl, BaseModel, Field, field_validator
 
 
 class PlaceBase(BaseModel):
-    business_id: int
+    business_id: int  # заполняется на бэкенде из токена, в PlaceCreate не требуется
     name: str = Field(..., min_length=1, max_length=255)
     # Тип места для фильтрации на фронтенде
     place_type: Optional[str] = Field(None, max_length=100)
@@ -23,11 +23,12 @@ class PlaceBase(BaseModel):
 
     @field_validator("interesting_fact", mode="before")
     @classmethod
-    def validate_interesting_fact(cls, v):  
+    def validate_interesting_fact(cls, v):
         return _validate_two_words(v)
 
 
 class PlaceCreate(PlaceBase):
+    business_id: int = 0  # переопределяем как необязательное — реальное значение подставляет эндпоинт из токена
     images: List[str] = Field(default_factory=list)
 
 
@@ -49,7 +50,7 @@ class PlaceUpdate(BaseModel):
 
     @field_validator("interesting_fact", mode="before")
     @classmethod
-    def validate_interesting_fact(cls, v): 
+    def validate_interesting_fact(cls, v):
         return _validate_two_words(v)
 
 

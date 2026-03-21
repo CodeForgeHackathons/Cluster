@@ -6,8 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from api.deps import get_db
+from api.deps import get_db, get_current_partner
 from models import Place, PlaceImage
+from models.business_rep_model import BusinessRepresentative
 from schemas import PlaceCreate, PlaceDetailResponse, PlaceResponse, PlaceReviewResponse, PlaceUpdate
 
 
@@ -57,9 +58,13 @@ def _place_to_detail(place: Place) -> PlaceDetailResponse:
 
 
 @router.post("", response_model=PlaceDetailResponse)
-def create_place(payload: PlaceCreate, db: Session = Depends(get_db)) -> PlaceDetailResponse:
+def create_place(
+    payload: PlaceCreate,
+    db: Session = Depends(get_db),
+    current_partner: BusinessRepresentative = Depends(get_current_partner),
+) -> PlaceDetailResponse:
     place = Place(
-        business_id=payload.business_id,
+        business_id=current_partner.id,
         name=payload.name,
         place_type=payload.place_type,
         location=payload.location,
@@ -89,10 +94,11 @@ def update_place(
     place_id: int,
     payload: PlaceUpdate,
     db: Session = Depends(get_db),
+    current_partner: BusinessRepresentative = Depends(get_current_partner),
 ) -> PlaceDetailResponse:
     stmt = (
         select(Place)
-        .where(Place.place_id == place_id)
+        .where(Place.place_id == place_id, Place.business_id == current_partner.id)
         .options(joinedload(Place.images), selectinload(Place.reviews))
     )
     place = db.execute(stmt).scalars().first()
@@ -215,3 +221,23 @@ def compute_place_embedding(place_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Place not found")
     ok = ensure_place_embedding(db, place)
     return {"place_id": place_id, "embedding_computed": ok}
+
+
+@router.delete("/{place_id}")
+def delete_place(
+    place_id: int,
+    db: Session = Depends(get_db),
+    current_partner: BusinessRepresentative = Depends(get_current_partner),
+) -> dict:
+    """Удалить место (вместе с изображениями, отзывами и спецпредложениями)."""
+    place = db.execute(
+        select(Place).where(
+            Place.place_id == place_id,
+            Place.business_id == current_partner.id,
+        )
+    ).scalars().first()
+    if place is None:
+        raise HTTPException(status_code=404, detail="Place not found")
+    db.delete(place)
+    db.commit()
+    return {"ok": True}

@@ -3,9 +3,10 @@ import { computed, ref, watch } from 'vue'
 import LandingPage from './pages/LandingPage.vue'
 import ClusterPage from './pages/ClusterPage.vue'
 import RoutePlannerPage from './pages/RoutePlannerPage.vue'
+import PartnerCabinetPage from './pages/PartnerCabinetPage.vue'
 import type { Cluster, Place } from './types/cluster'
 
-type Mode = 'landing' | 'cluster' | 'plan'
+type Mode = 'landing' | 'cluster' | 'plan' | 'partner'
 
 const mode = ref<Mode>('landing')
 const selectedCluster = ref<Cluster | null>(null)
@@ -43,6 +44,14 @@ function backFromPlanner(): void {
   isPlannerOpen.value = false
 }
 
+function openPartner(): void {
+  mode.value = 'partner'
+}
+
+function backFromPartner(): void {
+  mode.value = 'landing'
+}
+
 watch(
   () => routePlaces.value.length,
   (len) => {
@@ -70,7 +79,12 @@ function togglePlaceInRoute(place: Place): void {
 </script>
 
 <template>
-  <LandingPage v-if="mode === 'landing'" @openCluster="openCluster" @openPlanner="openPlanner" />
+  <LandingPage
+    v-if="mode === 'landing'"
+    @openCluster="openCluster"
+    @openPlanner="openPlanner"
+    @openPartner="openPartner"
+  />
 
   <ClusterPage
     v-if="mode === 'cluster' && selectedCluster"
@@ -81,7 +95,7 @@ function togglePlaceInRoute(place: Place): void {
   />
 
   <button
-    v-if="mode !== 'plan'"
+    v-if="mode !== 'plan' && mode !== 'partner'"
     type="button"
     class="routeFab"
     :aria-label="routePlaces.length > 0 ? `Открыть маршрут. В нём ${routePlaces.length} мест` : 'Подобрать маршрут'"
@@ -149,6 +163,8 @@ function togglePlaceInRoute(place: Place): void {
     :route-places="routePlaces"
     @back="backFromPlanner"
   />
+
+  <PartnerCabinetPage v-if="mode === 'partner'" @back="backFromPartner" />
 </template>
 
 <style scoped>

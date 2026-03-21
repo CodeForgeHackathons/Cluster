@@ -12,6 +12,7 @@ import type { Cluster } from '../types/cluster'
 const emit = defineEmits<{
   (e: 'openCluster', cluster: Cluster): void
   (e: 'openPlanner'): void
+  (e: 'openPartner'): void
 }>()
 
 type Filter = {
@@ -353,13 +354,22 @@ onBeforeUnmount(() => {
         >
           <span class="landing__backIcon" aria-hidden="true">←</span>
         </button>
-        <button
-          type="button"
-          class="landing__planBtn"
-          @click="emit('openPlanner')"
-        >
-          Подобрать маршрут по ИИ
-        </button>
+        <div class="landing__topBarRight">
+          <button
+            type="button"
+            class="landing__partnerLink"
+            @click="emit('openPartner')"
+          >
+            Кабинет партнёра
+          </button>
+          <button
+            type="button"
+            class="landing__planBtn"
+            @click="emit('openPlanner')"
+          >
+            Подобрать маршрут по ИИ
+          </button>
+        </div>
       </div>
 
       <h1
@@ -376,6 +386,14 @@ onBeforeUnmount(() => {
         @click="emit('openPlanner')"
       >
         Подобрать маршрут по предпочтениям →
+      </button>
+      <button
+        v-if="!clustersVisible"
+        type="button"
+        class="landing__partnerCta"
+        @click="emit('openPartner')"
+      >
+        Кабинет партнёра
       </button>
 
       <section
@@ -681,6 +699,29 @@ onBeforeUnmount(() => {
   line-height: 1;
 }
 
+.landing__topBarRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.landing__partnerLink {
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  border-radius: 10px;
+  transition: background 160ms ease, color 160ms ease;
+}
+.landing__partnerLink:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 1);
+}
+
 .landing__backText {
   font-size: 14px;
   font-weight: 700;
@@ -719,6 +760,26 @@ onBeforeUnmount(() => {
 .landing__planCta:hover {
   background: rgba(0, 194, 255, 0.15);
   border-color: rgba(0, 194, 255, 0.5);
+}
+
+.landing__partnerCta {
+  position: fixed;
+  top: calc(14px + env(safe-area-inset-top));
+  right: calc(14px + env(safe-area-inset-right));
+  padding: 8px 16px;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 10px;
+  z-index: 2;
+  transition: background 160ms ease, color 160ms ease;
+}
+.landing__partnerCta:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .landing__backBtn[aria-label='Назад'] {

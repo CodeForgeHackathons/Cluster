@@ -3,6 +3,7 @@ from .business_rep_model import BusinessRepresentative
 from .moderator_model import BusinessModeratorUser, BusinessModerationRequest
 
 from .place_model import Place, PlaceImage, PlaceReview
+from .special_offer_model import SpecialOffer
 
 __all__ = [
     "TouristUser",
@@ -12,4 +13,5 @@ __all__ = [
     "Place",
     "PlaceImage",
     "PlaceReview",
+    "SpecialOffer",
 ]
