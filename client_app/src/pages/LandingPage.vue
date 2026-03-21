@@ -1148,26 +1148,118 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 520px) {
+@media (max-width: 640px) {
   .landing {
-    padding: 18px 14px;
+    padding: 20px 16px;
   }
 
   .landing__content {
     padding-top: 0;
-    gap: 16px;
+    gap: 20px;
+  }
+
+  .landing__header {
+    padding: 0 0 20px;
+  }
+
+  .landing__title {
+    font-size: 32px;
+    margin-bottom: 12px;
+  }
+
+  .landing__subtitle {
+    font-size: 16px;
+    margin-bottom: 20px;
   }
 
   .landing__filters {
     grid-template-columns: 1fr;
     gap: 12px;
-    padding-bottom: 4px;
+    padding-bottom: 8px;
   }
 
   .landing__card {
-    min-height: 76px;
-    padding: 16px 14px;
+    min-height: 80px;
+    padding: 16px;
     border-radius: 16px;
+  }
+
+  .landing__cardLabel {
+    font-size: 15px;
+  }
+
+  .landing__clusters {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 0 4px 8px;
+  }
+
+  .landing__clusterCard {
+    border-radius: 18px;
+  }
+
+  .landing__clusterImgWrap {
+    aspect-ratio: 16 / 9;
+  }
+
+  .landing__clusterBody {
+    padding: 10px 12px 14px;
+  }
+
+  .landing__clusterTop {
+    margin-bottom: 6px;
+  }
+
+  .landing__clusterRating {
+    font-size: 13px;
+  }
+
+  .landing__clusterReviews {
+    font-size: 11px;
+  }
+
+  .landing__clusterTitle {
+    font-size: 15px;
+    margin-bottom: 5px;
+  }
+
+  .landing__clusterDesc {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .landing {
+    padding: 16px 12px;
+  }
+
+  .landing__content {
+    gap: 16px;
+  }
+
+  .landing__header {
+    padding: 0 0 16px;
+  }
+
+  .landing__title {
+    font-size: 28px;
+    margin-bottom: 10px;
+  }
+
+  .landing__subtitle {
+    font-size: 15px;
+    margin-bottom: 16px;
+  }
+
+  .landing__filters {
+    gap: 10px;
+    padding-bottom: 6px;
+  }
+
+  .landing__card {
+    min-height: 72px;
+    padding: 14px;
+    border-radius: 14px;
   }
 
   .landing__cardLabel {
@@ -1175,9 +1267,37 @@ onBeforeUnmount(() => {
   }
 
   .landing__clusters {
-    grid-template-columns: 1fr;
     gap: 12px;
-    padding-bottom: 8px;
+    padding: 0 2px 6px;
+  }
+
+  .landing__clusterCard {
+    border-radius: 16px;
+  }
+
+  .landing__clusterImgWrap {
+    aspect-ratio: 16 / 10;
+  }
+
+  .landing__clusterBody {
+    padding: 8px 10px 12px;
+  }
+
+  .landing__clusterRating {
+    font-size: 12px;
+  }
+
+  .landing__clusterReviews {
+    font-size: 10px;
+  }
+
+  .landing__clusterTitle {
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+
+  .landing__clusterDesc {
+    font-size: 11px;
   }
 }
 
