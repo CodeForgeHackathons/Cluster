@@ -266,22 +266,8 @@ async function loadData(): Promise<void> {
 }
 
 function getPlacesForCluster(clusterId: string): PartnerPlace[] {
-  const filtered = places.value.filter(place => {
-    // Сначала проверяем cluster_id (если есть)
-    if (place.cluster_id === clusterId) {
-      console.log(`Место "${place.name}" привязано к кластеру "${clusterId}" по cluster_id`)
-      return true
-    }
-    
-    // Если нет cluster_id, проверяем place_type (временное решение)
-    if (place.place_type === clusterId) {
-      console.log(`Место "${place.name}" привязано к кластеру "${clusterId}" по place_type`)
-      return true
-    }
-    
-    return false
-  })
-  console.log(`Кластер "${clusterId}": найдено ${filtered.length} мест`)
+  const filtered = places.value.filter(place => place.cluster_id === clusterId)
+  console.log(`Кластер "${clusterId}": найдено ${filtered.length} мест`, filtered)
   return filtered
 }
 

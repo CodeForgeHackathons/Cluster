@@ -25,6 +25,7 @@ class PartnerPlaceItem(BaseModel):
     price: float | None
     photo: str
     interesting_fact: str | None
+    cluster_id: str | None
 
 
 @router.get("/places", response_model=List[PartnerPlaceItem])
@@ -54,6 +55,7 @@ def list_partner_places(
                 price=float(p.price) if p.price is not None else None,
                 photo=photo,
                 interesting_fact=p.interesting_fact,
+                cluster_id=p.cluster_id,
             )
         )
     return result
@@ -80,7 +82,8 @@ def list_partner_special_offers(
             business_id=o.business_id,
             title=o.title,
             description=o.description,
-            discount_percent=float(o.discount_percent) if o.discount_percent is not None else None,
+            discount_percent=float(
+                o.discount_percent) if o.discount_percent is not None else None,
             special_price=o.special_price,
             start_date=o.start_date,
             end_date=o.end_date,
@@ -102,7 +105,8 @@ def create_special_offer(
 ) -> SpecialOfferWithPlace:
     """Создать спецпредложение."""
     if payload.start_date > payload.end_date:
-        raise HTTPException(status_code=400, detail="Дата начала не может быть позже даты окончания")
+        raise HTTPException(
+            status_code=400, detail="Дата начала не может быть позже даты окончания")
 
     place = db.execute(
         select(Place).where(
@@ -111,7 +115,8 @@ def create_special_offer(
         )
     ).scalars().first()
     if place is None:
-        raise HTTPException(status_code=404, detail="Место не найдено или не принадлежит партнёру")
+        raise HTTPException(
+            status_code=404, detail="Место не найдено или не принадлежит партнёру")
 
     offer = SpecialOffer(
         place_id=payload.place_id,
@@ -134,7 +139,8 @@ def create_special_offer(
         business_id=offer.business_id,
         title=offer.title,
         description=offer.description,
-        discount_percent=float(offer.discount_percent) if offer.discount_percent is not None else None,
+        discount_percent=float(
+            offer.discount_percent) if offer.discount_percent is not None else None,
         special_price=offer.special_price,
         start_date=offer.start_date,
         end_date=offer.end_date,
@@ -161,10 +167,12 @@ def update_special_offer(
     )
     offer = db.execute(stmt).scalars().first()
     if offer is None:
-        raise HTTPException(status_code=404, detail="Спецпредложение не найдено")
+        raise HTTPException(
+            status_code=404, detail="Спецпредложение не найдено")
 
     if payload.start_date is not None and payload.end_date is not None and payload.start_date > payload.end_date:
-        raise HTTPException(status_code=400, detail="Дата начала не может быть позже даты окончания")
+        raise HTTPException(
+            status_code=400, detail="Дата начала не может быть позже даты окончания")
 
     if payload.title is not None:
         offer.title = payload.title
@@ -190,7 +198,8 @@ def update_special_offer(
         business_id=offer.business_id,
         title=offer.title,
         description=offer.description,
-        discount_percent=float(offer.discount_percent) if offer.discount_percent is not None else None,
+        discount_percent=float(
+            offer.discount_percent) if offer.discount_percent is not None else None,
         special_price=offer.special_price,
         start_date=offer.start_date,
         end_date=offer.end_date,
@@ -216,7 +225,8 @@ def delete_special_offer(
         )
     ).scalars().first()
     if offer is None:
-        raise HTTPException(status_code=404, detail="Спецпредложение не найдено")
+        raise HTTPException(
+            status_code=404, detail="Спецпредложение не найдено")
     db.delete(offer)
     db.commit()
     return {"ok": True}
