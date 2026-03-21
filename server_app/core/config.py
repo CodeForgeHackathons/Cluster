@@ -13,11 +13,16 @@ class Settings(BaseSettings):
     # JWT
     SECRET_KEY: str = "change-me-in-production-use-long-random-string"
 
-    # DeepSeek API (embeddings + chat)
+    # DeepSeek API (chat only - no embeddings endpoint)
     DEEPSEEK_API_KEY: str = ""
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
-    DEEPSEEK_EMBEDDING_MODEL: str = "deepseek-embedding"
-    DEEPSEEK_EMBEDDING_DIM: int = 1536
+    DEEPSEEK_CHAT_MODEL: str = "deepseek-chat"
+    
+    # Embeddings: использовать локальный TF-IDF fallback или альтернативный сервис
+    # (DeepSeek не поддерживает /v1/embeddings)
+    USE_DEEPSEEK_EMBEDDINGS: bool = False  # В данный момент невозможно
+    EMBEDDING_SERVICE: str = "local_tfidf"  # Опции: "local_tfidf", "openai", "other"
+    EMBEDDINGS_API_KEY: str = ""  # Для альтернативного сервиса (если нужен)
 
     # AVALIN 3D Tours integration
     AVALIN_API_URL: str = "https://api.avalin.ru"

@@ -22,6 +22,7 @@ from services.place_search_service import (
     get_places_fallback,
     search_places_by_embedding,
 )
+# 🔄 Гибридный поиск будет импортирован внутри функции
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/itinerary", tags=["itinerary"])
@@ -289,19 +290,28 @@ def generate_itinerary(
     payload: ItineraryGenerateRequest,
     db: Session = Depends(get_db),
 ) -> ItineraryGenerateResponse:
-    """Генерирует маршрут по кандидатам или ищет места в БД по embeddings (DeepSeek)."""
+    """
+    Генерирует маршрут с гибридным поиском мест:
+    1. DeepSeek генерирует умный поисковый запрос
+    2. TF-IDF быстро ищет top-20 мест
+    3. DeepSeek переранжирует результаты
+    4. Система строит оптимальный маршрут
+    """
+    from services.hybrid_search_service import hybrid_search_places
+    
     candidates = list(payload.candidates) if payload.candidates else []
 
     db_place_by_id: dict[str, object] = {}
     if not candidates:
-        query_text = _query_text_from_preferences(
+        # 🔄 ГИБРИДНЫЙ ПОИСК с DeepSeek + TF-IDF
+        db_places = hybrid_search_places(
+            db=db,
             traveler_type=payload.travelerType or "family",
             start_date=payload.startDate,
             weather_labels=[w.weatherLabel for w in (payload.weatherByDay or []) if w.weatherLabel],
+            limit=12
         )
-        db_places = search_places_by_embedding(db, query_text=query_text, limit=12)
-        if not db_places:
-            db_places = get_places_fallback(db, limit=12)
+        
         candidates = [_place_to_candidate(p) for p in db_places]
         db_place_by_id = {c.id: p for c, p in zip(candidates, db_places)}
 

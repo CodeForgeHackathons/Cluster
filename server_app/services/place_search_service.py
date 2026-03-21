@@ -119,7 +119,11 @@ def search_places_by_embedding(
 ) -> List[Place]:
     """
     Ищет места по семантической близости к запросу.
-    Возвращает только места с заполненным embedding.
+    
+    ВАЖНО: DeepSeek не поддерживает embeddings API.
+    Используем локальный TF-IDF поиск (fallback).
+    Embeddings в БД заполнены для будущей интеграции с другими сервисами
+    (OpenAI, другие провайдеры).
     """
     stmt = (
         select(Place)
@@ -129,9 +133,11 @@ def search_places_by_embedding(
     if not places:
         return []
 
+    # DeepSeek не поддерживает embeddings, поэтому используем локальный поиск
     query_embedding = get_embedding(query_text)
+    
     if not query_embedding:
-        # Вариант B: полностью бесплатный локальный поиск "по смыслу"
+        # Полностью бесплатный локальный поиск "по смыслу" на основе TF-IDF
         place_texts = [_place_text_for_embedding(p) for p in places]
         docs_count = len(place_texts)
         doc_freq: Counter = Counter()
@@ -146,6 +152,7 @@ def search_places_by_embedding(
         local_scored.sort(key=lambda x: x[1], reverse=True)
         return [p for p, _ in local_scored[:limit]]
 
+    # Если embeddings доступны (интеграция с OpenAI или другим сервисом)
     scored: List[tuple[Place, float]] = []
     for place in places:
         if not place.embedding:

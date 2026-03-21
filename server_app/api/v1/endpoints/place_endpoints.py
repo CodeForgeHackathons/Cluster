@@ -250,14 +250,30 @@ def list_places(
 
 @router.post("/compute-embeddings")
 def compute_all_place_embeddings(db: Session = Depends(get_db)):
-    """Вычисляет эмбеддинги для всех мест, у которых их ещё нет."""
+    """
+    ⚠️ DEPRECATED: DeepSeek не поддерживает embeddings API.
+    
+    Система использует локальный TF-IDF поиск автоматически.
+    Embeddings в БД зарезервированы для будущей интеграции с:
+    - OpenAI API (text-embedding-3-small)
+    - Другими сервисами
+    """
     from services.place_search_service import ensure_place_embedding
 
     stmt = select(Place).where(Place.embedding.is_(None))
     places = list(db.execute(stmt).scalars().all())
     total = len(places)
-    computed = sum(1 for p in places if ensure_place_embedding(db, p))
-    return {"total_without_embedding": total, "computed": computed}
+    
+    # Пока не пытаемся вычислять - DeepSeek не поддерживает embeddings
+    computed = 0
+    
+    return {
+        "status": "deprecated",
+        "message": "DeepSeek не поддерживает embeddings API. Используется локальный TF-IDF поиск.",
+        "total_without_embedding": total,
+        "computed": computed,
+        "note": "Для использования embeddings настройте EMBEDDING_SERVICE=openai в .env"
+    }
 
 
 @router.get("/{place_id}", response_model=PlaceDetailResponse)
@@ -275,15 +291,23 @@ def get_place(place_id: int, db: Session = Depends(get_db)) -> PlaceDetailRespon
 
 @router.post("/{place_id}/compute-embedding")
 def compute_place_embedding(place_id: int, db: Session = Depends(get_db)):
-    """Вычисляет и сохраняет эмбеддинг для места (DeepSeek)."""
-    from services.place_search_service import ensure_place_embedding
-
+    """
+    ⚠️ DEPRECATED: DeepSeek не поддерживает embeddings API.
+    
+    Используется локальный TF-IDF поиск вместо embeddings.
+    """
     stmt = select(Place).where(Place.place_id == place_id)
     place = db.execute(stmt).scalars().first()
     if place is None:
         raise HTTPException(status_code=404, detail="Place not found")
-    ok = ensure_place_embedding(db, place)
-    return {"place_id": place_id, "embedding_computed": ok}
+    
+    return {
+        "place_id": place_id,
+        "embedding_computed": False,
+        "status": "deprecated",
+        "message": "DeepSeek не поддерживает embeddings API. Используется локальный TF-IDF.",
+        "note": "Для embeddings используйте EMBEDDING_SERVICE=openai"
+    }
 
 
 @router.delete("/{place_id}")
