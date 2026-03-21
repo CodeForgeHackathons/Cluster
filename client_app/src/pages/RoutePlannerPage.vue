@@ -1294,6 +1294,7 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: 1.1fr 1fr;
   gap: 14px;
+  align-items: start;
   padding: 14px;
   border-radius: 22px;
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -1302,7 +1303,9 @@ onBeforeUnmount(() => {
 }
 
 .planner__field {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .planner__fieldLabel {
@@ -1313,14 +1316,19 @@ onBeforeUnmount(() => {
   margin-bottom: 8px;
 }
 
+
+
 .planner__select {
   width: 100%;
+  height: 46px;
   padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(0, 0, 0, 0.26);
   color: rgba(255, 255, 255, 0.98);
   outline: none;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .planner__fieldHint {
