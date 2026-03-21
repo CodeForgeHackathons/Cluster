@@ -39,8 +39,8 @@ services:
       SPECIAL_OFFERS_ENABLED: "True"
       SECRET_KEY: "change-me-in-production-use-long-random-string"
       # AI features
-      DEEPSEEK_API_KEY: "sk-cf9e6409b60c422989b095ee62132e83"
-      DEEPSEEK_BASE_URL: https://api.deepseek.com
+      DEEPSEEK_API_KEY: ""
+      DEEPSEEK_BASE_URL: https://llms.dotpoin.com/v1
     ports:
       - "8000:8000"
     depends_on:
