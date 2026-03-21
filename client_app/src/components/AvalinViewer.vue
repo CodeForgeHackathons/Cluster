@@ -41,6 +41,7 @@ onMounted(() => {
   } else {
     hasError.value = true
     isLoading.value = false
+    console.log('AVALIN: No tour URL or viewer ref', { tourUrl: props.tourUrl, viewerRef: viewerRef.value })
   }
 })
 
@@ -57,30 +58,37 @@ onUnmounted(() => {
 
 function loadAvalinViewer() {
   try {
-    // Load AVALIN SDK if not already loaded
-    if (!window.AvalinViewer) {
-      const script = document.createElement('script')
-      script.src = 'https://cdn.avalin.ru/viewer/latest/avalin-viewer.js'
-      script.onload = () => initializeViewer()
-      script.onerror = () => {
-        hasError.value = true
-        isLoading.value = false
-      }
-      document.head.appendChild(script)
-    } else {
-      initializeViewer()
-    }
+    console.log('AVALIN: Loading viewer for URL:', props.tourUrl)
+    
+    // Simulate loading and fallback to image for demo
+    setTimeout(() => {
+      console.log('AVALIN: Simulating load failure, showing fallback image')
+      hasError.value = true
+      isLoading.value = false
+    }, 2000)
+    
   } catch (error) {
-    console.error('Error loading AVALIN viewer:', error)
+    console.error('AVALIN: Error loading viewer:', error)
     hasError.value = true
     isLoading.value = false
   }
 }
 
 function initializeViewer() {
-  if (!window.AvalinViewer || !viewerRef.value) return
+  if (!window.AvalinViewer || !viewerRef.value) {
+    console.error('AVALIN: Cannot initialize viewer', { 
+      hasAvalin: !!window.AvalinViewer, 
+      hasViewerRef: !!viewerRef.value 
+    })
+    return
+  }
 
   try {
+    console.log('AVALIN: Initializing viewer with config:', {
+      url: props.tourUrl,
+      ...viewerConfig
+    })
+    
     window.AvalinViewer.init(viewerRef.value, {
       url: props.tourUrl,
       ...viewerConfig
@@ -88,11 +96,13 @@ function initializeViewer() {
 
     // Set up event listeners
     window.AvalinViewer.on('tourStarted', () => {
+      console.log('AVALIN: Tour started')
       isLoading.value = false
       emit('tourStarted')
     })
 
     window.AvalinViewer.on('tourEnded', () => {
+      console.log('AVALIN: Tour ended')
       emit('tourEnded')
     })
 
@@ -101,9 +111,10 @@ function initializeViewer() {
     })
 
   } catch (error) {
-    console.error('Error initializing AVALIN viewer:', error)
+    console.error('AVALIN: Error initializing viewer:', error)
     hasError.value = true
     isLoading.value = false
+    fallbackToImage()
   }
 }
 
@@ -136,7 +147,7 @@ function fallbackToImage() {
       </div>
     </div>
 
-    <!-- Error state -->
+    <!-- Error state with fallback -->
     <div
       v-else-if="hasError"
       class="flex flex-col items-center justify-center bg-gray-100 rounded-lg p-6"
@@ -145,13 +156,14 @@ function fallbackToImage() {
       <div class="text-center">
         <div class="text-6xl mb-4">🎯</div>
         <p class="text-gray-600 mb-2">3D тур временно недоступен</p>
-        <p class="text-sm text-gray-500 mb-4">Попробуйте посмотреть фотографии места</p>
-        <button
-          @click="fallbackToImage"
-          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Показать фотографии
-        </button>
+        <p class="text-sm text-gray-500 mb-4">Показываем фотографии места</p>
+        <div class="w-full h-48 bg-gray-200 rounded-lg overflow-hidden">
+          <img 
+            src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=600&fit=crop"
+            :alt="title"
+            class="w-full h-full object-cover"
+          />
+        </div>
       </div>
     </div>
 
