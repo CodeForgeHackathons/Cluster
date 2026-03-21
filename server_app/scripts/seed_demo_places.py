@@ -12,14 +12,10 @@
 from __future__ import annotations
 
 import sys
-<<<<<<< HEAD
-=======
 import os
 
 # Добавляем /app в путь, чтобы скрипт работал из любого рабочего каталога
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
->>>>>>> 4dcb6edf565fbf294898b058539efde66d3d35bf
 from decimal import Decimal
 
 sys.path.append("/app")
@@ -62,43 +58,39 @@ CLUSTER_IMAGES: dict[str, list[str]] = {
     ],
 }
 
-<<<<<<< HEAD
 # Демо 3D туры AVALIN для "вау"-эффекта
 DEMO_AVALIN_TOURS: dict[str, list[str]] = {
     "cl1": [
-        "https://demo.avalin.ru/tours/sea-hotel-360",
-        "https://demo.avalin.ru/tours/beach-walk-360",
-        "https://demo.avalin.ru/tours/sunset-view-360",
+        "https://demo.avalin.ru/tours/beach-resort-360",
+        "https://demo.avalin.ru/tours/seafood-restaurant-360",
+        "https://demo.avalin.ru/tours/water-sports-360",
     ],
     "cl2": [
-        "https://demo.avalin.ru/tours/nature-house-360",
-        "https://demo.avalin.ru/tours/lake-walk-360",
-        "https://demo.avalin.ru/tours/forest-path-360",
+        "https://demo.avalin.ru/tours/forest-lake-360",
+        "https://demo.avalin.ru/tours/eco-hotel-360",
+        "https://demo.avalin.ru/tours/nature-trail-360",
     ],
     "cl3": [
-        "https://demo.avalin.ru/tours/coworking-view-360",
-        "https://demo.avalin.ru/tours/terrace-work-360",
-        "https://demo.avalin.ru/tours/coffee-office-360",
+        "https://demo.avalin.ru/tours/coworking-360",
+        "https://demo.avalin.ru/tours/rooftop-cafe-360",
+        "https://demo.avalin.ru/tours/art-gallery-360",
     ],
     "cl4": [
-        "https://demo.avalin.ru/tours/winery-tour-360",
-        "https://demo.avalin.ru/tours/tasting-room-360",
-        "https://demo.avalin.ru/tours/vineyard-walk-360",
+        "https://demo.avalin.ru/tours/wine-cellar-360",
+        "https://demo.avalin.ru/tours/vineyard-360",
+        "https://demo.avalin.ru/tours/wine-tasting-360",
     ],
     "cl5": [
-        "https://demo.avalin.ru/tours/family-park-360",
         "https://demo.avalin.ru/tours/kids-playground-360",
         "https://demo.avalin.ru/tours/family-cafe-360",
+        "https://demo.avalin.ru/tours/children-museum-360",
     ],
     "cl6": [
-        "https://demo.avalin.ru/tours/craft-workshop-360",
-        "https://demo.avalin.ru/tours/traditional-house-360",
+        "https://demo.avalin.ru/tours/quiet-library-360",
+        "https://demo.avalin.ru/tours/meditation-room-360",
         "https://demo.avalin.ru/tours/handmade-store-360",
     ],
 }
-=======
-
->>>>>>> 4dcb6edf565fbf294898b058539efde66d3d35bf
 
 STUB_CLUSTERS = [
     {
@@ -235,13 +227,9 @@ def main() -> None:
                 continue
 
             for i in range(3):
-<<<<<<< HEAD
-                # Получаем AVALIN тур для этого места
+# Получаем AVALIN тур для этого места
                 avalin_tours = DEMO_AVALIN_TOURS.get(cluster_id, [])
                 avalin_url = avalin_tours[i] if i < len(avalin_tours) else None
-
-=======
->>>>>>> 4dcb6edf565fbf294898b058539efde66d3d35bf
                 place = Place(
                     business_id=biz.id,
                     cluster_id=cluster_id,
@@ -251,8 +239,7 @@ def main() -> None:
                     interesting_fact=facts[i] if i < len(facts) else "",
                     description=descs[i] if i < len(descs) else "",
                     description_ai=descs[i] if i < len(descs) else "",
-<<<<<<< HEAD
-                    price=price
+price=price
                     * (
                         Decimal("0.92")
                         if i == 1
@@ -261,9 +248,6 @@ def main() -> None:
                         else Decimal("1.00")
                     ),
                     avalin_tour_url=avalin_url,
-=======
-                    price=price * (Decimal("0.92") if i == 1 else Decimal("1.04") if i == 2 else Decimal("1.00")),
->>>>>>> 4dcb6edf565fbf294898b058539efde66d3d35bf
                 )
                 db.add(place)
                 db.flush()  # чтобы place_id появился
