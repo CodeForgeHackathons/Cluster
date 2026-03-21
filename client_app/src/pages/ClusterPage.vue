@@ -236,6 +236,7 @@ function reviewStars(r: Review): string {
   width: 100%;
   overflow: hidden;
   color: rgba(255, 255, 255, 0.98);
+  overflow-x: auto;
 }
 
 .cluster__bg {
@@ -701,7 +702,67 @@ function reviewStars(r: Review): string {
   }
 }
 
-@media (min-width: 2560px) {
+@media (min-width: 1440px) {
+  .cluster {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 28px 20px;
+  }
+  
+  .cluster__title {
+    font-size: clamp(28px, 3vw, 42px);
+    margin-bottom: 20px;
+  }
+  
+  .cluster__search {
+    margin-bottom: 28px;
+  }
+  
+  .cluster__input {
+    padding: 14px 18px;
+    font-size: clamp(16px, 1.6vw, 18px);
+  }
+  
+  .clusterCard {
+    border-radius: 20px;
+    margin-bottom: 24px;
+  }
+  
+  .clusterCard__media {
+    height: clamp(280px, 30vw, 350px);
+  }
+  
+  .clusterCard__3dTour {
+    height: clamp(280px, 30vw, 350px);
+  }
+  
+  .clusterCard__body {
+    padding: 24px;
+  }
+  
+  .clusterCard__title {
+    font-size: clamp(20px, 2.2vw, 28px);
+    margin-bottom: 12px;
+  }
+  
+  .clusterCard__location {
+    font-size: clamp(14px, 1.4vw, 16px);
+    margin-bottom: 16px;
+  }
+  
+  .clusterCard__fact {
+    font-size: clamp(14px, 1.4vw, 16px);
+    line-height: 1.4;
+    margin-bottom: 20px;
+  }
+  
+  .clusterActionBtn {
+    padding: 14px 18px;
+    font-size: clamp(14px, 1.4vw, 16px);
+  }
+}
+
+@media (min-width: 1920px) {
   .cluster {
     max-width: 1400px;
     margin: 0 auto;

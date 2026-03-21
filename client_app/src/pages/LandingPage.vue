@@ -645,6 +645,12 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   padding-top: 0;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 24px 16px;
+  box-sizing: border-box;
+  overflow-x: auto;
   gap: 26px;
 }
 
@@ -1133,7 +1139,46 @@ onBeforeUnmount(() => {
   outline-offset: 3px;
 }
 
-@media (min-width: 2560px) {
+@media (min-width: 1440px) {
+  .landing__content {
+    width: min(1400px, 100%);
+  }
+  
+  .landing__title {
+    font-size: clamp(32px, 3.5vw, 56px);
+  }
+  
+  .landing__card {
+    min-height: 100px;
+    padding: 20px 18px;
+  }
+  
+  .landing__cardLabel {
+    font-size: clamp(16px, 1.8vw, 20px);
+  }
+  
+  .landing__clusters {
+    gap: 18px;
+  }
+  
+  .landing__clusterCard {
+    border-radius: 24px;
+  }
+  
+  .landing__clusterBody {
+    padding: 16px 18px 20px;
+  }
+  
+  .landing__clusterTitle {
+    font-size: clamp(16px, 1.6vw, 20px);
+  }
+  
+  .landing__clusterDesc {
+    font-size: clamp(13px, 1.2vw, 15px);
+  }
+}
+
+@media (min-width: 1920px) {
   .landing {
     max-width: 1600px;
     margin: 0 auto;

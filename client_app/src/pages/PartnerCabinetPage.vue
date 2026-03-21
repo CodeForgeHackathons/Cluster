@@ -580,12 +580,13 @@ onMounted(async () => {
   cursor: not-allowed;
 }
 
-.partner {
+.partnerCabinet {
   position: relative;
   min-height: 100svh;
   width: 100%;
-  overflow-x: hidden;
+  overflow: hidden;
   color: rgba(255, 255, 255, 0.98);
+  overflow-x: auto;
 }
 
 .partner__bg {
@@ -888,7 +889,7 @@ onMounted(async () => {
   gap: 10px;
 }
 
-@media (min-width: 2560px) {
+@media (min-width: 1920px) {
   .partnerCabinet {
     max-width: 1400px;
     margin: 0 auto;

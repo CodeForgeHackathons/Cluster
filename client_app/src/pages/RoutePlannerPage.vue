@@ -1163,16 +1163,12 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .planner {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
+  position: relative;
+  min-height: 100svh;
+  width: 100%;
+  overflow: hidden;
   color: rgba(255, 255, 255, 0.98);
-  overflow: auto;
-  background:
-    radial-gradient(1200px 600px at 10% 5%, rgba(0, 194, 255, 0.28), transparent 55%),
-    linear-gradient(
-      180deg,
-      rgba(0, 0, 0, 0.52) 0%,
+  overflow-x: auto;
       rgba(0, 0, 0, 0.65) 65%,
       rgba(0, 0, 0, 0.75) 100%
     );
@@ -1961,7 +1957,7 @@ onBeforeUnmount(() => {
   padding: 24px;
 }
 
-@media (min-width: 2560px) {
+@media (min-width: 1920px) {
   .planner {
     max-width: 1400px;
     margin: 0 auto;
