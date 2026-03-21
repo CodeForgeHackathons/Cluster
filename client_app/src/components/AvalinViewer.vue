@@ -196,39 +196,8 @@ function fallbackToImage() {
 }
 
 .avalin-viewer {
-  width: 100%;
-  height: 100%;
-  border-radius: 8px;
-}
-
-@media (max-width: 980px) {
-  .avalin-viewer-container {
-    border-radius: 10px;
-  }
-  
-  .avalin-viewer {
-    border-radius: 6px;
-  }
-}
-
-@media (max-width: 640px) {
-  .avalin-viewer-container {
-    border-radius: 8px;
-  }
-  
-  .avalin-viewer {
-    border-radius: 4px;
-  }
-}
-
-@media (max-width: 480px) {
-  .avalin-viewer-container {
-    border-radius: 6px;
-  }
-  
-  .avalin-viewer {
-    border-radius: 3px;
-  }
+  background: #000;
+  border-radius: 12px;
 }
 
 /* Custom styles for AVALIN viewer integration */

@@ -702,6 +702,7 @@ function reviewStars(r: Review): string {
   }
 }
 
+<<<<<<< HEAD
 @media (min-width: 1440px) {
   .cluster {
     max-width: 1200px;
@@ -859,154 +860,25 @@ function reviewStars(r: Review): string {
   }
 }
 
+=======
+>>>>>>> parent of 4cf9af5 (improved adaptability)
 @media (max-width: 980px) {
   .clusterCard {
     grid-template-columns: 1fr;
   }
-  
+
+  .clusterCard__media {
+    min-height: 300px;
+  }
+
   .clusterCard__actions {
     flex-direction: column;
-    gap: 8px;
     align-items: stretch;
   }
 
   .clusterCard__hint {
     width: auto;
     text-align: left;
-  }
-}
-
-@media (max-width: 640px) {
-  .cluster {
-    padding: 16px 12px;
-  }
-  
-  .cluster__header {
-    padding: 0 0 16px;
-  }
-  
-  .cluster__title {
-    font-size: 24px;
-    margin-bottom: 12px;
-  }
-  
-  .cluster__backBtn {
-    padding: 10px 16px;
-    font-size: 14px;
-  }
-  
-  .cluster__search {
-    margin-bottom: 16px;
-  }
-  
-  .cluster__input {
-    padding: 12px 16px;
-    font-size: 16px;
-  }
-  
-  .clusterCard {
-    border-radius: 16px;
-    margin-bottom: 16px;
-  }
-  
-  .clusterCard__media {
-    height: 200px;
-  }
-  
-  .clusterCard__3dTour {
-    height: 200px;
-  }
-  
-  .clusterCard__3dToggle {
-    top: 8px;
-    right: 8px;
-    padding: 6px 12px;
-    font-size: 11px;
-  }
-  
-  .clusterCard__body {
-    padding: 16px;
-  }
-  
-  .clusterCard__title {
-    font-size: 20px;
-    margin-bottom: 8px;
-  }
-  
-  .clusterCard__location {
-    font-size: 14px;
-    margin-bottom: 12px;
-  }
-  
-  .clusterCard__fact {
-    font-size: 14px;
-    line-height: 1.4;
-    margin-bottom: 16px;
-  }
-  
-  .clusterCard__reviews {
-    margin-bottom: 16px;
-  }
-  
-  .clusterReview {
-    gap: 8px;
-    margin-bottom: 6px;
-  }
-  
-  .clusterReview__author {
-    font-size: 13px;
-  }
-  
-  .clusterReview__stars {
-    font-size: 11px;
-  }
-  
-  .clusterReview__text {
-    font-size: 13px;
-  }
-  
-  .clusterActionBtn {
-    padding: 10px 12px;
-    font-size: 13px;
-  }
-}
-
-@media (max-width: 480px) {
-  .cluster {
-    padding: 12px 8px;
-  }
-  
-  .cluster__title {
-    font-size: 20px;
-  }
-  
-  .clusterCard__media {
-    height: 180px;
-  }
-  
-  .clusterCard__3dTour {
-    height: 180px;
-  }
-  
-  .clusterCard__body {
-    padding: 12px;
-  }
-  
-  .clusterCard__title {
-    font-size: 18px;
-  }
-  
-  .clusterCard__location {
-    font-size: 13px;
-  }
-  
-  .clusterCard__fact {
-    font-size: 13px;
-  }
-  
-  .clusterActionBtn {
-    padding: 8px 10px;
-    font-size: 12px;
   }
 }
 </style>

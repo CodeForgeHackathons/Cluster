@@ -187,57 +187,6 @@ function togglePlaceInRoute(place: Place): void {
   transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
 }
 
-@media (max-width: 980px) {
-  .routeFab {
-    right: 12px;
-    bottom: 12px;
-    padding: 10px 12px;
-    gap: 8px;
-  }
-  
-  .routeFab__icon {
-    font-size: 14px;
-  }
-  
-  .routeFab__label {
-    font-size: 13px;
-  }
-}
-
-@media (max-width: 640px) {
-  .routeFab {
-    right: 8px;
-    bottom: 8px;
-    padding: 8px 10px;
-    gap: 6px;
-  }
-  
-  .routeFab__icon {
-    font-size: 12px;
-  }
-  
-  .routeFab__label {
-    font-size: 11px;
-  }
-}
-
-@media (max-width: 480px) {
-  .routeFab {
-    right: 6px;
-    bottom: 6px;
-    padding: 6px 8px;
-    gap: 4px;
-  }
-  
-  .routeFab__icon {
-    font-size: 10px;
-  }
-  
-  .routeFab__label {
-    font-size: 10px;
-  }
-}
-
 .routeFab:hover {
   transform: translateY(-2px);
   border-color: rgba(0, 194, 255, 0.65);
@@ -264,12 +213,6 @@ function togglePlaceInRoute(place: Place): void {
   justify-content: center;
 }
 
-@media (max-width: 640px) {
-  .routeDrawerOverlay {
-    align-items: flex-end;
-  }
-}
-
 .routeDrawer {
   width: min(720px, 100%);
   max-height: 78vh;
@@ -279,14 +222,6 @@ function togglePlaceInRoute(place: Place): void {
   backdrop-filter: blur(18px) saturate(140%);
   box-shadow: 0 -30px 120px rgba(0, 0, 0, 0.55);
   overflow: hidden;
-}
-
-@media (max-width: 640px) {
-  .routeDrawer {
-    width: 100%;
-    max-height: 85vh;
-    border-radius: 16px 16px 0 0;
-  }
 }
 
 .routeDrawer__header {

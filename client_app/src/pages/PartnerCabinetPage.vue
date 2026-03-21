@@ -889,6 +889,7 @@ onMounted(async () => {
   gap: 10px;
 }
 
+<<<<<<< HEAD
 @media (min-width: 1920px) {
   .partnerCabinet {
     max-width: 1400px;
@@ -1247,4 +1248,6 @@ onMounted(async () => {
   }
 }
 
+=======
+>>>>>>> parent of 4cf9af5 (improved adaptability)
 </style>
