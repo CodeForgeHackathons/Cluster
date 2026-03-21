@@ -10,7 +10,5 @@ COPY . .
 
 EXPOSE 8000
 
-# Запустить миграции автоматически при старте контейнера
-RUN alembic upgrade head
-
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Запустить миграции и API при старте контейнера
+CMD bash -c "alembic upgrade head && python -m uvicorn main:app --host 0.0.0.0 --port 8000"
