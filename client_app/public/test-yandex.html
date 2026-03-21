@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест Яндекс Карт</title>
+    <style>
+        body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+        #map { height: 500px; width: 100%; margin: 20px 0; }
+        .test-info { background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 10px 0; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .controls { margin: 20px 0; }
+        button { margin: 5px; padding: 10px 15px; cursor: pointer; }
+        #log { background: #f5f5f5; padding: 10px; border-radius: 5px; font-family: monospace; white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>🗺️ Тест Яндекс Карт API</h1>
+    
+    <div class="test-info">
+        <h3>Проверяем:</h3>
+        <ul>
+            <li>Яндекс Карты загружаются</li>
+            <li>Маркеры создаются</li>
+            <li>Маршруты строятся</li>
+        </ul>
+    </div>
+
+    <div class="controls">
+        <button onclick="testMarkers()">📍 Добавить маркеры</button>
+        <button onclick="testRoute()">🛣️ Построить маршрут</button>
+        <button onclick="clearMap()">🧹 Очистить карту</button>
+    </div>
+
+    <div id="status"></div>
+    <div id="log"></div>
+    <div id="map"></div>
+
+    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=0e24184e-ed66-4a25-a5d3-27188c22426c"></script>
+    
+    <script>
+        let map;
+        let markers = [];
+        let routes = [];
+
+        // Тестовые координаты (Краснодар)
+        const testPoints = [
+            { lat: 45.0355, lon: 38.9753, name: "Центр Краснодара" },
+            { lat: 45.0448, lon: 38.9763, name: "Парк Горького" },
+            { lat: 45.0284, lon: 38.9731, name: "Улица Красная" }
+        ];
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        function initMap() {
+            ymaps.ready(() => {
+                log('Яндекс Карты загружены успешно');
+                
+                map = new ymaps.Map('map', {
+                    center: [45.0355, 38.9753],
+                    zoom: 12,
+                    controls: ['zoomControl', 'typeSelector', 'fullscreenControl']
+                });
+
+                updateStatus('✅ Карта инициализирована', 'success');
+                log('Карта создана в центре Краснодара');
+            });
+        }
+
+        function testMarkers() {
+            if (!map) {
+                updateStatus('❌ Карта не инициализирована', 'error');
+                return;
+            }
+
+            clearMap();
+            log('Создаем маркеры...');
+
+            testPoints.forEach((point, index) => {
+                const placemark = new ymaps.Placemark([point.lat, point.lon], {
+                    balloonContent: `${index + 1}. ${point.name}`
+                }, {
+                    preset: 'islands#darkBlueDotIcon'
+                });
+
+                map.geoObjects.add(placemark);
+                markers.push(placemark);
+                log(`Маркер ${index + 1} добавлен: ${point.name}`);
+            });
+
+            updateStatus(`✅ Добавлено ${testPoints.length} маркеров`, 'success');
+        }
+
+        function testRoute() {
+            if (!map) {
+                updateStatus('❌ Карта не инициализирована', 'error');
+                return;
+            }
+
+            clearMap();
+            log('Создаем маршрут...');
+
+            try {
+                const multiRoute = new ymaps.multiRouter.multiRoute({
+                    referencePoints: testPoints.map(p => [p.lat, p.lon]),
+                    params: {
+                        routingMode: 'auto',
+                        avoidTrafficJams: true,
+                        results: 1
+                    }
+                });
+
+                map.geoObjects.add(multiRoute);
+                routes.push(multiRoute);
+
+                multiRoute.model.events.add('requestsuccess', function() {
+                    log('Маршрут успешно построен');
+                    updateStatus('✅ Маршрут построен!', 'success');
+                    
+                    // Изменяем стиль маршрута
+                    const routes = multiRoute.getRoutes();
+                    if (routes.length > 0) {
+                        const route = routes[0];
+                        const paths = route.getPaths();
+                        
+                        paths.forEach((path, index) => {
+                            path.options.set({
+                                strokeColor: '#0066cc',
+                                strokeWidth: 4,
+                                strokeOpacity: 0.8
+                            });
+                            log(`Путь ${index + 1} настроен`);
+                        });
+                    }
+                });
+
+                multiRoute.model.events.add('requestfail', function(error) {
+                    log(`Ошибка построения маршрута: ${error}`);
+                    updateStatus('❌ Ошибка маршрутизации', 'error');
+                });
+
+                log('Запрос на построение маршрута отправлен');
+
+            } catch (error) {
+                log(`Ошибка: ${error.message}`);
+                updateStatus(`❌ Ошибка: ${error.message}`, 'error');
+            }
+        }
+
+        function clearMap() {
+            if (!map) return;
+
+            markers.forEach(marker => map.geoObjects.remove(marker));
+            routes.forEach(route => map.geoObjects.remove(route));
+            
+            markers = [];
+            routes = [];
+
+            log('Карта очищена');
+        }
+
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', initMap);
+    </script>
+</body>
+</html>

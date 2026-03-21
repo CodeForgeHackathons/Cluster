@@ -768,9 +768,14 @@ const activeMapPointId = ref<string | null>(null)
 
 const mapPoints = computed<MapPoint[]>(() => {
   const pts: MapPoint[] = []
-  days.value.forEach((d) => {
-    d.places.forEach((item) => {
-      pts.push({
+  console.log('=== ROUTE PLANNER MAPPOINTS ===')
+  console.log('days.value.length:', days.value.length)
+  console.log('days.value:', days.value)
+  
+  days.value.forEach((d, dayIndex) => {
+    console.log(`День ${dayIndex}, мест: ${d.places.length}`)
+    d.places.forEach((item, placeIndex) => {
+      const mapPoint = {
         id: item.place.id,
         title: item.place.title,
         location: item.place.location,
@@ -781,9 +786,13 @@ const mapPoints = computed<MapPoint[]>(() => {
         cost: item.place.cost,
         rating: item.place.rating,
         photo: item.place.photo,
-      })
+      }
+      pts.push(mapPoint)
+      console.log(`  Место ${placeIndex}:`, mapPoint)
     })
   })
+  
+  console.log('Итого mapPoints:', pts.length)
   return pts
 })
 

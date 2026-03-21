@@ -13,23 +13,42 @@ const emit = defineEmits<{
 
 // Асинхронные компоненты для разных карт
 const RouteMapSimple = defineAsyncComponent(() => import('./RouteMapSimple.vue'))
-const RouteMapYandex = defineAsyncComponent(() => import('./RouteMapYandex.vue'))
+const RouteMapYandex = defineAsyncComponent(() => import('./RouteMapYandexSimple.vue'))
 
 const mapType = ref<'osrm' | 'yandex'>('osrm')
 
 // Переключение типа карты
 function switchMapType(type: 'osrm' | 'yandex') {
+  console.log('=== ПЕРЕКЛЮЧЕНИЕ КАРТЫ ===')
+  console.log('Переключаем тип карты на:', type)
+  console.log('Было:', mapType.value, 'Стало:', type)
   mapType.value = type
   localStorage.setItem('preferredMapType', type)
+  
+  // Небольшая задержка для корректного переключения
+  nextTick(() => {
+    console.log('Тип карты переключен')
+  })
 }
 
 // Загружаем сохраненный тип карты
 onMounted(() => {
+  console.log('=== SWITCHER ONMOUNTED ===')
   const saved = localStorage.getItem('preferredMapType') as 'osrm' | 'yandex' | null
+  console.log('Сохраненный тип карты:', saved)
   if (saved) {
     mapType.value = saved
+    console.log('Установлен тип карты:', mapType.value)
+  } else {
+    console.log('Сохраненный тип не найден, используем по умолчанию')
   }
 })
+
+// Добавим watch для отладки
+watch(() => props.points, (newPoints) => {
+  console.log('=== SWITCHER WATCH СРАБОТАЛ ===')
+  console.log('Switcher получил точки:', newPoints.length)
+}, { deep: true, immediate: true })
 
 watch(mapType, () => {
   // Перерисовка при смене типа
@@ -59,12 +78,18 @@ watch(mapType, () => {
           @click="switchMapType('yandex')"
         >
           <span class="mapSwitcher__buttonIcon">🗺️</span>
-          <span class="mapSwitcher__buttonText">Яндекс Карты</span>
+          <span class="mapSwitcher__buttonText">Яндекс (простые)</span>
         </button>
       </div>
     </div>
 
     <!-- Динамический компонент карты -->
+    <div style="background: rgba(255,0,0,0.1); padding: 10px; margin: 5px 0; border-radius: 5px;">
+      <strong>DEBUG: mapType = {{ mapType }}</strong><br>
+      <strong>DEBUG: points.length = {{ props.points.length }}</strong><br>
+      <strong>DEBUG: activePointId = {{ props.activePointId }}</strong>
+    </div>
+    
     <RouteMapSimple
       v-if="mapType === 'osrm'"
       :points="props.points"
@@ -89,8 +114,8 @@ watch(mapType, () => {
       
       <div v-if="mapType === 'yandex'" class="mapSwitcher__infoItem">
         <span class="mapSwitcher__infoIcon">🗺️</span>
-        <span class="mapSwitcher__infoText">Яндекс Карты API</span>
-        <span class="mapSwitcher__infoDesc">Точные маршруты по РФ с пробками</span>
+        <span class="mapSwitcher__infoText">Яндекс Карты</span>
+        <span class="mapSwitcher__infoDesc">Простые линии между точками</span>
       </div>
     </div>
   </div>

@@ -128,9 +128,11 @@ async function buildYandexRoute(points: MapPoint[]) {
   const color = getColor(day)
   
   try {
+    console.log(`Строим Yandex маршрут дня ${day + 1} для ${points.length} точек`)
+    
     // Создаем мультимаршрут через Yandex Maps API
     const multiRoute = new ymaps.multiRouter.multiRoute({
-      referencePoints: points.map(p => [p.lon, p.lat]),
+      referencePoints: points.map(p => [p.lat, p.lon]), // Правильный порядок: [lat, lon]
       params: {
         routingMode: 'auto', // 'auto', 'pedestrian', 'masstransit'
         avoidTrafficJams: true,
@@ -138,28 +140,28 @@ async function buildYandexRoute(points: MapPoint[]) {
       }
     })
 
+    // Добавляем маршрут на карту сразу
+    map.geoObjects.add(multiRoute)
+    routeLines.push(multiRoute)
+
     // Обрабатываем построение маршрута
     multiRoute.model.events.add('requestsuccess', function() {
+      console.log(`Yandex маршрут дня ${day + 1} построен успешно`)
+      
+      // Изменяем стиль маршрута
       const routes = multiRoute.getRoutes()
       if (routes.length > 0) {
         const route = routes[0]
         const paths = route.getPaths()
         
-        // Рисуем линии маршрута
         paths.forEach((path) => {
-          const line = path.getLines()
-          line.forEach((l) => {
-            const polyline = new ymaps.Polyline(l.geometry.getCoordinates(), {
-              strokeColor: color,
-              strokeWidth: 4,
-              strokeOpacity: 0.8
-            })
-            map.geoObjects.add(polyline)
-            routeLines.push(polyline)
+          path.options.set({
+            strokeColor: color,
+            strokeWidth: 4,
+            strokeOpacity: 0.8,
+            strokeStyle: 'solid'
           })
         })
-        
-        console.log(`Yandex маршрут дня ${day + 1} построен успешно`)
       }
     })
 
@@ -179,7 +181,7 @@ async function buildYandexRoute(points: MapPoint[]) {
 function drawFallbackRoute(points: MapPoint[], color: string) {
   if (!map || points.length < 2) return
   
-  const coordinates = points.map(p => [p.lon, p.lat])
+  const coordinates = points.map(p => [p.lat, p.lon]) // Правильный порядок: [lat, lon]
   
   const polyline = new ymaps.Polyline(coordinates, {
     strokeColor: color,
@@ -235,7 +237,6 @@ function renderPoints() {
       balloonContent: makePopup(pt)
     }, {
       preset: 'islands#darkBlueDotIcon',
-      iconContent: iconContent,
       iconLayout: 'default#imageWithContent'
     })
 
