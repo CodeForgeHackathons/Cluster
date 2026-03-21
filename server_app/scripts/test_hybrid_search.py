@@ -8,13 +8,18 @@
 """
 
 import sys
-sys.path.insert(0, '/Users/temamodder/Projects/Cluster/server_app')
+import os
 
-from database.session import SessionLocal
+# Работает и локально, и в Docker контейнере
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(script_dir)
+sys.path.insert(0, project_root)
+
+from database.session import LocalSession
 from services.place_search_service import search_places_by_embedding, get_places_fallback
 from services.hybrid_search_service import hybrid_search_places
 
-db = SessionLocal()
+db = LocalSession()
 
 try:
     print("=" * 80)
