@@ -1163,12 +1163,16 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .planner {
-  position: relative;
-  min-height: 100svh;
-  width: 100%;
-  overflow: hidden;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
   color: rgba(255, 255, 255, 0.98);
-  overflow-x: auto;
+  overflow: auto;
+  background:
+    radial-gradient(1200px 600px at 10% 5%, rgba(0, 194, 255, 0.28), transparent 55%),
+    linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0.52) 0%,
       rgba(0, 0, 0, 0.65) 65%,
       rgba(0, 0, 0, 0.75) 100%
     );
@@ -1955,126 +1959,6 @@ onBeforeUnmount(() => {
 
 .tourModal__body {
   padding: 24px;
-}
-
-@media (min-width: 1920px) {
-  .planner {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 32px 24px;
-  }
-  
-  .planner__header {
-    padding: 0 0 32px;
-  }
-  
-  .planner__title {
-    font-size: 48px;
-    margin-bottom: 24px;
-  }
-  
-  .planner__backBtn {
-    padding: 16px 24px;
-    font-size: 18px;
-  }
-  
-  .planner__controls {
-    gap: 20px;
-    margin-bottom: 32px;
-  }
-  
-  .planner__search {
-    padding: 16px 20px;
-    font-size: 18px;
-  }
-  
-  .planner__generateBtn {
-    padding: 16px 24px;
-    font-size: 18px;
-  }
-  
-  .planner__actions {
-    gap: 16px;
-    margin-bottom: 32px;
-  }
-  
-  .plannerActionBtn {
-    padding: 16px 20px;
-    font-size: 18px;
-  }
-  
-  .planner__actionsHint {
-    font-size: 14px;
-  }
-  
-  .plannerTimeline {
-    gap: 24px;
-  }
-  
-  .timeline__day {
-    padding: 24px;
-  }
-  
-  .timeline__dayTitle {
-    font-size: 24px;
-    margin-bottom: 20px;
-  }
-  
-  .timeline__places {
-    gap: 20px;
-  }
-  
-  .timeline__place {
-    padding: 20px;
-  }
-  
-  .timeline__placeHeader {
-    margin-bottom: 16px;
-  }
-  
-  .timeline__placeTitle {
-    font-size: 20px;
-  }
-  
-  .timeline__placeLocation {
-    font-size: 16px;
-  }
-  
-  .timeline__placeDescription {
-    font-size: 16px;
-    margin-bottom: 16px;
-  }
-  
-  .timeline__placeActions {
-    gap: 12px;
-  }
-  
-  .timeline__actionBtn {
-    padding: 10px 16px;
-    font-size: 14px;
-  }
-  
-  .tourModal {
-    padding: 24px;
-  }
-  
-  .tourModal__header {
-    padding: 24px;
-  }
-  
-  .tourModal__title {
-    font-size: 24px;
-  }
-  
-  .tourModal__close {
-    width: 48px;
-    height: 48px;
-    font-size: 20px;
-  }
-  
-  .tourModal__body {
-    padding: 24px;
-  }
 }
 
 @media (max-width: 980px) {

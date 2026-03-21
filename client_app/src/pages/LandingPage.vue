@@ -645,12 +645,6 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   padding-top: 0;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 24px 16px;
-  box-sizing: border-box;
-  overflow-x: auto;
   gap: 26px;
 }
 
@@ -1137,124 +1131,6 @@ onBeforeUnmount(() => {
 .landing__card:focus-visible {
   outline: 2px solid rgba(0, 194, 255, 0.9);
   outline-offset: 3px;
-}
-
-@media (min-width: 1440px) {
-  .landing__content {
-    width: min(1400px, 100%);
-  }
-  
-  .landing__title {
-    font-size: clamp(32px, 3.5vw, 56px);
-  }
-  
-  .landing__card {
-    min-height: 100px;
-    padding: 20px 18px;
-  }
-  
-  .landing__cardLabel {
-    font-size: clamp(16px, 1.8vw, 20px);
-  }
-  
-  .landing__clusters {
-    gap: 18px;
-  }
-  
-  .landing__clusterCard {
-    border-radius: 24px;
-  }
-  
-  .landing__clusterBody {
-    padding: 16px 18px 20px;
-  }
-  
-  .landing__clusterTitle {
-    font-size: clamp(16px, 1.6vw, 20px);
-  }
-  
-  .landing__clusterDesc {
-    font-size: clamp(13px, 1.2vw, 15px);
-  }
-}
-
-@media (min-width: 1920px) {
-  .landing {
-    max-width: 1600px;
-    margin: 0 auto;
-    padding: 48px 32px;
-  }
-  
-  .landing__content {
-    gap: 48px;
-  }
-  
-  .landing__header {
-    padding: 0 0 48px;
-  }
-  
-  .landing__title {
-    font-size: 64px;
-    margin-bottom: 24px;
-  }
-  
-  .landing__subtitle {
-    font-size: 24px;
-    margin-bottom: 32px;
-  }
-  
-  .landing__filters {
-    gap: 24px;
-    padding-bottom: 16px;
-  }
-  
-  .landing__card {
-    min-height: 120px;
-    padding: 24px 20px;
-    border-radius: 24px;
-  }
-  
-  .landing__cardLabel {
-    font-size: 22px;
-  }
-  
-  .landing__clusters {
-    gap: 24px;
-    padding: 0 8px 16px;
-  }
-  
-  .landing__clusterCard {
-    border-radius: 28px;
-  }
-  
-  .landing__clusterImgWrap {
-    aspect-ratio: 16 / 9;
-  }
-  
-  .landing__clusterBody {
-    padding: 20px 24px 28px;
-  }
-  
-  .landing__clusterTop {
-    margin-bottom: 12px;
-  }
-  
-  .landing__clusterRating {
-    font-size: 18px;
-  }
-  
-  .landing__clusterReviews {
-    font-size: 14px;
-  }
-  
-  .landing__clusterTitle {
-    font-size: 22px;
-    margin-bottom: 10px;
-  }
-  
-  .landing__clusterDesc {
-    font-size: 16px;
-  }
 }
 
 @media (max-width: 980px) {
