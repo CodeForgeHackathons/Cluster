@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест реальных маршрутов</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <style>
+        body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+        #map { height: 500px; width: 100%; margin: 20px 0; }
+        .test-info { background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 10px 0; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .controls { margin: 20px 0; }
+        button { margin: 5px; padding: 10px 15px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Тест реальных маршрутов OSRM</h1>
+    
+    <div class="test-info">
+        <h3>Что проверяем:</h3>
+        <ul>
+            <li>OSRM сервер доступен</li>
+            <li>Маршруты строятся по дорогам</li>
+            <li>Разные типы маршрутов работают</li>
+        </ul>
+    </div>
+
+    <div class="controls">
+        <button onclick="testDrivingRoute()">🚗 Тест автомобильного маршрута</button>
+        <button onclick="testWalkingRoute()">🚶 Тест пешеходного маршрута</button>
+        <button onclick="testCyclingRoute()">🚴 Тест велосипедного маршрута</button>
+        <button onclick="clearRoutes()">🧹 Очистить карту</button>
+    </div>
+
+    <div id="status"></div>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    
+    <script>
+        let map;
+        let currentControl;
+
+        // Тестовые координаты (Краснодар)
+        const testPoints = [
+            { lat: 45.0355, lon: 38.9753, name: "Центр Краснодара" },
+            { lat: 45.0448, lon: 38.9763, name: "Парк Горького" },
+            { lat: 45.0284, lon: 38.9731, name: "Улица Красная" }
+        ];
+
+        function initMap() {
+            map = L.map('map').setView([45.0355, 38.9753], 13);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Добавляем маркеры тестовых точек
+            testPoints.forEach((point, index) => {
+                L.marker([point.lat, point.lon])
+                    .addTo(map)
+                    .bindPopup(`${index + 1}. ${point.name}`)
+                    .openPopup();
+            });
+
+            updateStatus('Карта инициализирована. Нажмите кнопки для тестирования маршрутов.', 'success');
+        }
+
+        function updateStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        function testRoute(profile, profileName, color) {
+            if (currentControl) {
+                map.removeControl(currentControl);
+            }
+
+            updateStatus(`Построение ${profileName} маршрута...`, 'info');
+
+            const waypoints = testPoints.map(p => L.latLng(p.lat, p.lon));
+
+            currentControl = L.Routing.control({
+                waypoints: waypoints,
+                router: L.Routing.osrmv1({
+                    serviceUrl: 'https://router.project-osrm.org',
+                    profile: profile
+                }),
+                lineOptions: {
+                    styles: [{
+                        color: color,
+                        weight: 4,
+                        opacity: 0.8
+                    }]
+                },
+                addWaypoints: false,
+                createMarker: () => null,
+                routeWhileDragging: false,
+                show: true
+            }).on('routesfound', function(e) {
+                const routes = e.routes;
+                if (routes && routes[0]) {
+                    const summary = routes[0].summary;
+                    const distance = (summary.totalDistance / 1000).toFixed(1);
+                    const time = Math.round(summary.totalTime / 60);
+                    updateStatus(`✅ ${profileName} маршрут построен! Расстояние: ${distance} км, Время: ${time} мин`, 'success');
+                }
+            }).on('routingerror', function(e) {
+                updateStatus(`❌ Ошибка построения ${profileName} маршрута: ${e.error.message}`, 'error');
+            }).addTo(map);
+        }
+
+        function testDrivingRoute() {
+            testRoute('driving', 'автомобильного', '#0066cc');
+        }
+
+        function testWalkingRoute() {
+            testRoute('walking', 'пешеходного', '#00cc66');
+        }
+
+        function testCyclingRoute() {
+            testRoute('cycling', 'велосипедного', '#cc6600');
+        }
+
+        function clearRoutes() {
+            if (currentControl) {
+                map.removeControl(currentControl);
+                currentControl = null;
+            }
+            updateStatus('Маршруты очищены', 'info');
+        }
+
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', initMap);
+    </script>
+</body>
+</html>

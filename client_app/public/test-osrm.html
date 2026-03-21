@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест OSRM API</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+        #map { height: 500px; width: 100%; margin: 20px 0; }
+        .test-info { background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 10px 0; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .controls { margin: 20px 0; }
+        button { margin: 5px; padding: 10px 15px; cursor: pointer; }
+        #log { background: #f5f5f5; padding: 10px; border-radius: 5px; font-family: monospace; white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Тест OSRM API (прямой вызов)</h1>
+    
+    <div class="test-info">
+        <h3>Проверяем:</h3>
+        <ul>
+            <li>OSRM API доступен напрямую</li>
+            <li>Маршруты строятся по дорогам</li>
+            <li>Ответы API корректны</li>
+        </ul>
+    </div>
+
+    <div class="controls">
+        <button onclick="testOSRMDirect()">🌐 Прямой тест OSRM API</button>
+        <button onclick="testRouteOnMap()">🗺️ Построить маршрут на карте</button>
+        <button onclick="clearMap()">🧹 Очистить карту</button>
+    </div>
+
+    <div id="status"></div>
+    <div id="log"></div>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        let map;
+        let currentRoute;
+
+        // Тестовые координаты (Краснодар)
+        const testPoints = [
+            { lat: 45.0355, lon: 38.9753, name: "Центр Краснодара" },
+            { lat: 45.0448, lon: 38.9763, name: "Парк Горького" },
+            { lat: 45.0284, lon: 38.9731, name: "Улица Красная" }
+        ];
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        async function testOSRMDirect() {
+            updateStatus('Тест OSRM API...', 'info');
+            log('Начинаем тест OSRM API...');
+
+            const coords = testPoints.map(p => `${p.lon},${p.lat}`).join(';');
+            const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
+            
+            log(`URL запроса: ${url}`);
+
+            try {
+                const response = await fetch(url);
+                log(`Status: ${response.status}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                log(`Ответ получен: ${JSON.stringify(data, null, 2)}`);
+
+                if (data.routes && data.routes[0]) {
+                    const route = data.routes[0];
+                    const distance = (route.distance / 1000).toFixed(1);
+                    const duration = Math.round(route.duration / 60);
+                    updateStatus(`✅ OSRM работает! Расстояние: ${distance} км, Время: ${duration} мин`, 'success');
+                    log(`Маршрут успешно построен: ${distance} км, ${duration} мин`);
+                } else {
+                    throw new Error('Нет маршрутов в ответе');
+                }
+            } catch (error) {
+                log(`Ошибка: ${error.message}`);
+                updateStatus(`❌ Ошибка OSRM: ${error.message}`, 'error');
+            }
+        }
+
+        function initMap() {
+            map = L.map('map').setView([45.0355, 38.9753], 13);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Добавляем маркеры тестовых точек
+            testPoints.forEach((point, index) => {
+                L.marker([point.lat, point.lon])
+                    .addTo(map)
+                    .bindPopup(`${index + 1}. ${point.name}`)
+                    .openPopup();
+            });
+
+            updateStatus('Карта инициализирована. Нажмите кнопки для тестирования.', 'success');
+            log('Карта инициализирована');
+        }
+
+        async function testRouteOnMap() {
+            if (currentRoute) {
+                map.removeLayer(currentRoute);
+            }
+
+            updateStatus('Построение маршрута...', 'info');
+            log('Строим маршрут на карте...');
+
+            const coords = testPoints.map(p => `${p.lon},${p.lat}`).join(';');
+            const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.routes && data.routes[0] && data.routes[0].geometry) {
+                    const routeCoords = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                    
+                    currentRoute = L.polyline(routeCoords, {
+                        color: '#0066cc',
+                        weight: 4,
+                        opacity: 0.8
+                    }).addTo(map);
+
+                    const distance = (data.routes[0].distance / 1000).toFixed(1);
+                    const duration = Math.round(data.routes[0].duration / 60);
+                    
+                    updateStatus(`✅ Маршрут построен! ${distance} км, ${duration} мин`, 'success');
+                    log(`Маршрут на карте: ${distance} км, ${duration} мин, ${routeCoords.length} точек`);
+                } else {
+                    throw new Error('Не удалось построить маршрут');
+                }
+            } catch (error) {
+                log(`Ошибка построения маршрута: ${error.message}`);
+                updateStatus(`❌ Ошибка: ${error.message}`, 'error');
+            }
+        }
+
+        function clearMap() {
+            if (currentRoute) {
+                map.removeLayer(currentRoute);
+                currentRoute = null;
+            }
+            updateStatus('Карта очищена', 'info');
+            log('Карта очищена');
+        }
+
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', initMap);
+    </script>
+</body>
+</html>

@@ -2,8 +2,8 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getApiBase } from '../api/client'
 import type { Place } from '../types/cluster'
-import RouteMap from '../components/RouteMap.vue'
-import type { MapPoint } from '../components/RouteMap.vue'
+import RouteMapSwitcher from '../components/RouteMapSwitcher.vue'
+import type { MapPoint } from '../components/RouteMapSimple.vue'
 import AvalinViewer from '../components/AvalinViewer.vue'
 
 type TravelerType = 'family' | 'elderly' | 'digital' | 'gastro' | 'active' | 'eco'
@@ -1043,7 +1043,7 @@ onBeforeUnmount(() => {
 
         <section v-if="mapPoints.length" class="plannerMapSection">
           <div class="plannerMapSection__header">Карта вашего путешествия</div>
-          <RouteMap
+          <RouteMapSwitcher
             :points="mapPoints"
             :active-point-id="activeMapPointId"
             @select-point="onMapSelectPoint"
