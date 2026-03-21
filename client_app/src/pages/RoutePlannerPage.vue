@@ -14,6 +14,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'back'): void
+  (e: 'openClusterByPlaceId', placeId: string): void
 }>()
 
 function todayISODate(): string {
@@ -102,6 +103,10 @@ function close3DTour(): void {
 
 function has3DTour(place: Place): boolean {
   return !!(place as any).avalinTourUrl
+}
+
+function openClusterByPlaceId(placeId: string): void {
+  emit('openClusterByPlaceId', placeId)
 }
 
 function weatherLabelFromCode(code: number): { label: string; isRainy: boolean } {
@@ -1016,6 +1021,15 @@ onBeforeUnmount(() => {
                   </div>
                   <div class="plannerPlace__loc">{{ item.place.location }}</div>
                   <div class="plannerPlace__why">{{ item.why }}</div>
+                  <div class="plannerPlace__actions">
+                    <button
+                      type="button"
+                      class="plannerPlace__moreBtn"
+                      @click.stop="openClusterByPlaceId(item.place.id)"
+                    >
+                      Читать далее
+                    </button>
+                  </div>
                 </div>
               </article>
             </div>
@@ -1363,6 +1377,7 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
+  align-items: start;
 }
 
 .plannerMapSection {
@@ -1384,6 +1399,8 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.04);
   padding: 12px;
+  display: flex;
+  flex-direction: column;
 }
 
 .plannerDay__top {
@@ -1411,6 +1428,7 @@ onBeforeUnmount(() => {
 .plannerDay__list {
   display: grid;
   gap: 10px;
+  align-content: start;
 }
 
 .plannerPlace {
@@ -1424,6 +1442,8 @@ onBeforeUnmount(() => {
   background: rgba(0, 0, 0, 0.18);
   cursor: pointer;
   transition: transform 160ms ease, border-color 160ms ease;
+  height: 320px;
+  overflow: hidden;
 }
 
 .plannerPlace:hover {
@@ -1448,6 +1468,9 @@ onBeforeUnmount(() => {
 .plannerPlace__body {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .plannerPlace__row {
@@ -1478,6 +1501,10 @@ onBeforeUnmount(() => {
   opacity: 0.88;
   font-size: 12px;
   margin-top: 5px;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .plannerPlace__why {
@@ -1485,6 +1512,33 @@ onBeforeUnmount(() => {
   font-size: 13px;
   opacity: 0.92;
   line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.plannerPlace__actions {
+  margin-top: auto;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.plannerPlace__moreBtn {
+  border-radius: 12px;
+  border: 1px solid rgba(0, 194, 255, 0.5);
+  background: rgba(0, 194, 255, 0.12);
+  color: rgba(255, 255, 255, 0.98);
+  padding: 8px 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+.plannerPlace__moreBtn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0, 194, 255, 0.8);
+  background: rgba(0, 194, 255, 0.2);
 }
 
 .planner__mapHint {

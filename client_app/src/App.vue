@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import LandingPage from './pages/LandingPage.vue'
 import ClusterPage from './pages/ClusterPage.vue'
 import RoutePlannerPage from './pages/RoutePlannerPage.vue'
 import PartnerCabinetPage from './pages/PartnerCabinetPage.vue'
+import { fetchClusters } from './api/clusters'
 import type { Cluster, Place } from './types/cluster'
 
 type Mode = 'landing' | 'cluster' | 'plan' | 'partner'
 
 const mode = ref<Mode>('landing')
 const selectedCluster = ref<Cluster | null>(null)
+const clustersRef = ref<Map<string, Cluster> | null>(null)
+const clustersLoading = ref(false)
 
 // "Маршрут" хранится в памяти: без запросов в бэкенд.
 const routePlaces = ref<Place[]>([])
@@ -30,6 +33,25 @@ function openCluster(cluster: Cluster): void {
   selectedCluster.value = cluster
   mode.value = 'cluster'
   isRouteOpen.value = false
+}
+
+async function ensureClustersLoaded(): Promise<Map<string, Cluster> | null> {
+  if (clustersRef.value) return clustersRef.value
+  if (clustersLoading.value) return clustersRef.value
+  clustersLoading.value = true
+  const result = await fetchClusters()
+  clustersLoading.value = false
+  if (!result) return null
+  clustersRef.value = result.clusters
+  return clustersRef.value
+}
+
+async function openClusterByPlaceId(placeId: string): Promise<void> {
+  const clusterId = placeId.split('-')[0] ?? ''
+  if (!clusterId) return
+  const clusters = await ensureClustersLoaded()
+  const cluster = clusters?.get(clusterId)
+  if (cluster) openCluster(cluster)
 }
 
 function backToLanding(): void {
@@ -70,6 +92,10 @@ watch(
     }
   },
 )
+
+onMounted(() => {
+  void ensureClustersLoaded()
+})
 
 function togglePlaceInRoute(place: Place): void {
   const idx = routePlaces.value.findIndex((p) => p.id === place.id)
@@ -162,6 +188,7 @@ function togglePlaceInRoute(place: Place): void {
     v-if="mode === 'plan'"
     :route-places="routePlaces"
     @back="backFromPlanner"
+    @openClusterByPlaceId="openClusterByPlaceId"
   />
 
   <PartnerCabinetPage v-if="mode === 'partner'" @back="backFromPartner" />
