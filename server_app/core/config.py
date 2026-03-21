@@ -19,6 +19,15 @@ class Settings(BaseSettings):
     DEEPSEEK_EMBEDDING_MODEL: str = "deepseek-embedding"
     DEEPSEEK_EMBEDDING_DIM: int = 1536
 
+    # AVALIN 3D Tours integration
+    AVALIN_API_URL: str = "https://api.avalin.ru"
+    AVALIN_API_KEY: str = ""
+    AVALIN_CDN_URL: str = "https://cdn.avalin.ru/viewer/latest"
+
+    # Business Partner Features
+    BUSINESS_PARTNER_ENABLED: bool = True
+    SPECIAL_OFFERS_ENABLED: bool = True
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True
