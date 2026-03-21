@@ -68,6 +68,12 @@ export type PartnerCluster = {
   status: string;
 };
 
+export type ClusterCreate = {
+  title: string;
+  meta?: string | null;
+  description?: string | null;
+};
+
 export type TokenResponse = {
   access_token: string;
   token_type: string;
@@ -147,6 +153,15 @@ export async function getPartnerMe(): Promise<PartnerProfile> {
 export async function fetchPartnerClusters(): Promise<PartnerCluster[]> {
   const data = await authFetch<PartnerCluster[]>("/partner/clusters");
   return data ?? [];
+}
+
+export async function createPartnerCluster(
+  payload: ClusterCreate,
+): Promise<PartnerCluster> {
+  return authFetch<PartnerCluster>("/partner/clusters", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 // --------------------------------------------------------------------------- //

@@ -13,11 +13,13 @@ import {
   setToken,
   clearToken,
   fetchPartnerClusters,
+  createPartnerCluster,
   type PartnerPlaceDetail,
   type PartnerPlace,
   type PartnerPlaceUpdate,
   type PartnerProfile,
   type PartnerCluster,
+  type ClusterCreate,
 } from '../api/partner'
 
 const emit = defineEmits<{
@@ -37,6 +39,12 @@ const currentPartner = ref<PartnerProfile | null>(null)
 const partnerClusters = ref<PartnerCluster[]>([])
 const clustersLoading = ref(false)
 const clustersError = ref('')
+const showCreateClusterForm = ref(false)
+const createClusterError = ref('')
+const creatingCluster = ref(false)
+const newClusterTitle = ref('')
+const newClusterMeta = ref('')
+const newClusterDescription = ref('')
 
 // ---------- Кабинет ----------
 const places = ref<PartnerPlace[]>([])
@@ -236,6 +244,48 @@ async function loadPartnerClusters(): Promise<void> {
   }
 }
 
+function openCreateClusterForm(): void {
+  showCreateClusterForm.value = true
+  resetCreateClusterForm()
+}
+
+function closeCreateClusterForm(): void {
+  showCreateClusterForm.value = false
+  resetCreateClusterForm()
+}
+
+function resetCreateClusterForm(): void {
+  newClusterTitle.value = ''
+  newClusterMeta.value = ''
+  newClusterDescription.value = ''
+  createClusterError.value = ''
+}
+
+async function createCluster(): Promise<void> {
+  if (!newClusterTitle.value.trim()) {
+    createClusterError.value = 'Введите название кластера'
+    return
+  }
+
+  creatingCluster.value = true
+  createClusterError.value = ''
+  const payload: ClusterCreate = {
+    title: newClusterTitle.value.trim(),
+    meta: newClusterMeta.value.trim() || null,
+    description: newClusterDescription.value.trim() || null,
+  }
+
+  try {
+    const newCluster = await createPartnerCluster(payload)
+    partnerClusters.value.push(newCluster)
+    closeCreateClusterForm()
+  } catch (e) {
+    createClusterError.value = (e as Error)?.message ?? 'Не удалось создать кластер'
+  } finally {
+    creatingCluster.value = false
+  }
+}
+
 async function openPlace(placeId: number): Promise<void> {
   selectedPlaceLoading.value = true
   error.value = ''
@@ -418,6 +468,9 @@ onMounted(async () => {
         <div class="partner__title">Кабинет партнёра</div>
         <div class="partner__subtitle">{{ currentPartner.full_name || currentPartner.username }}</div>
       </div>
+      <button type="button" class="partner__newBtn" @click="openCreateClusterForm">
+        + Новый кластер
+      </button>
       <button type="button" class="partner__newBtn" @click="openCreateForm">
         + Новое место
       </button>
@@ -513,6 +566,47 @@ onMounted(async () => {
 
         <section v-else class="partner__section">
           <div v-if="selectedPlaceLoading" class="partner__loading">Открываем место…</div>
+
+          <!-- Список кластеров -->
+          <div v-if="!showCreateClusterForm && !showCreateForm && !selectedPlace" class="partner__clusters">
+            <h3 class="partner__sectionTitle">Ваши кластеры</h3>
+            <div v-if="clustersLoading" class="partner__loading">Загрузка кластеров…</div>
+            <div v-else-if="clustersError" class="partner__error">{{ clustersError }}</div>
+            <div v-else-if="partnerClusters.length === 0" class="partner__empty">
+              У вас пока нет кластеров. Создайте первый кластер, чтобы добавлять места.
+            </div>
+            <div v-else class="partner__clusterList">
+              <div
+                v-for="cluster in partnerClusters"
+                :key="cluster.id"
+                class="partner__clusterItem"
+              >
+                <div class="partner__clusterInfo">
+                  <div class="partner__clusterTitle">{{ cluster.title }}</div>
+                  <div v-if="cluster.meta" class="partner__clusterMeta">{{ cluster.meta }}</div>
+                  <div class="partner__clusterStatus">Статус: {{ cluster.status }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <section v-if="showCreateClusterForm" class="partner__createSection">
+            <div class="createPlaceCard">
+              <div class="createPlaceCard__title">Новый кластер</div>
+              <div v-if="createClusterError" class="partner__error">{{ createClusterError }}</div>
+
+              <input v-model="newClusterTitle" class="createInput" type="text" placeholder="Название кластера *" />
+              <input v-model="newClusterMeta" class="createInput" type="text" placeholder="Мета-описание (кратко)" />
+              <textarea v-model="newClusterDescription" class="createInput createInput--textarea" placeholder="Описание кластера"></textarea>
+
+              <div class="createPlaceCard__actions">
+                <button type="button" class="partner__newBtn" :disabled="creatingCluster" @click="createCluster">
+                  {{ creatingCluster ? 'Создание…' : 'Создать кластер' }}
+                </button>
+                <button type="button" class="partner__backBtn" @click="closeCreateClusterForm">Отмена</button>
+              </div>
+            </div>
+          </section>
 
           <section v-if="showCreateForm" class="partner__createSection">
             <div class="createPlaceCard">
@@ -820,6 +914,66 @@ onMounted(async () => {
 .partner__deleteBtn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.partner__clusters {
+  margin-top: 20px;
+}
+
+.partner__sectionTitle {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: rgba(255, 255, 255, 0.98);
+}
+
+.partner__empty {
+  text-align: center;
+  opacity: 0.7;
+  padding: 40px 20px;
+  font-style: italic;
+}
+
+.partner__clusterList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.partner__clusterItem {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 16px;
+  transition: border-color 160ms ease;
+}
+
+.partner__clusterItem:hover {
+  border-color: rgba(0, 194, 255, 0.45);
+}
+
+.partner__clusterInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.partner__clusterTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.98);
+}
+
+.partner__clusterMeta {
+  font-size: 14px;
+  opacity: 0.85;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.partner__clusterStatus {
+  font-size: 12px;
+  opacity: 0.7;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .partner__createSection {
