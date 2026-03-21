@@ -307,6 +307,19 @@ const clusterSeasonTags: Record<string, string[]> = {
   cl5: ['spring', 'summer'],
   cl6: ['autumn', 'winter'],
 }
+
+// Кластеры, которые плохо подходят для конкретного сезона
+const clusterSeasonWorst: Record<string, string[]> = {
+  cl1: ['winter'],
+  cl2: ['winter'],
+  cl4: ['summer', 'winter'],
+  cl5: ['winter'],
+  cl6: ['spring', 'summer'],
+}
+
+// Outdoor-кластеры (штраф при дождях), indoor (бонус при дождях)
+const outdoorClusters = new Set(['cl1', 'cl2', 'cl5'])
+const indoorClusters = new Set(['cl3', 'cl4', 'cl6'])
 const clusterTypeTags: Record<string, string[]> = {
   cl1: ['family', 'elderly-friendly', 'relaxed', 'outdoor'],
   cl2: ['family', 'eco', 'relaxed', 'nature'],
@@ -333,6 +346,15 @@ function buildCandidatesFromPlaces(places: Place[]) {
       if (s === 'autumn') return ['09', '10', '11']
       return []
     })
+    const isOutdoor = outdoorClusters.has(key)
+    const isIndoor = indoorClusters.has(key)
+    const indoorOptions = isIndoor
+      ? ['дегустации', 'мастерские', 'кафе с видом']
+      : ['кафе рядом', 'веранды']
+    const outdoorOptions = isOutdoor
+      ? ['пляж', 'набережная', 'прогулки у воды']
+      : ['прогулки', 'фото-остановки']
+
     return {
       id: p.id,
       clusterId: key || (p.id.split('-')[0] ?? p.id),
@@ -346,8 +368,8 @@ function buildCandidatesFromPlaces(places: Place[]) {
       seasonsBest,
       availableMonths: [...new Set(months)],
       typeTags: [...new Set(typeTags)],
-      indoorOptions: ['веранды/кафе рядом', 'дегустации в плохую погоду'],
-      outdoorOptions: ['прогулки', 'набережная', 'фото-остановки'],
+      indoorOptions,
+      outdoorOptions,
       suitabilityFlags: {
         kidsFriendly: typeTags.some((t) => t.includes('kids') || t.includes('family')),
         elderlyFriendly: typeTags.some((t) => t.includes('elderly')),
@@ -358,7 +380,7 @@ function buildCandidatesFromPlaces(places: Place[]) {
   })
 }
 
-// MVP: “ИИ-логика” локальная, без бэка. Она учитывает сезон и тип туриста.
+// Скоринг места — синхронизирован с бэкендом (_score_candidate)
 function scorePlace(place: Place): number {
   const t = travelerType.value
   const season = monthToSeason(month.value)
@@ -367,17 +389,23 @@ function scorePlace(place: Place): number {
   const location = place.location.toLowerCase()
   let score = 0
 
-  // Сезонное соответствие (алгоритм бэкенда)
-  const seasonBest: Record<string, Array<'winter' | 'spring' | 'summer' | 'autumn'>> = {
-    cl1: ['summer'], // море
-    cl2: ['spring', 'autumn'], // природа/озеро
-    cl3: ['spring', 'summer', 'autumn', 'winter'], // вид/кофе/работа круглый год
-    cl4: ['autumn', 'spring'], // вино
-    cl5: ['spring', 'summer'], // дети
-    cl6: ['autumn', 'winter'], // меньше людей
+  // --- Сезонность (главный фактор, +40 / -25) ---
+  const best = clusterSeasonTags[key]
+  if (best) {
+    if (best.includes(season)) {
+      score += 40
+    } else {
+      const worst = clusterSeasonWorst[key] ?? []
+      if (worst.includes(season)) score -= 25
+    }
   }
-  const best = seasonBest[key]
-  if (best && best.includes(season)) score += 10
+
+  // --- Погода: учитываем дождливые дни поездки ---
+  const rainyDays = weatherByDay.value.filter((w) => w.isRainy).length
+  if (rainyDays > 0) {
+    if (outdoorClusters.has(key)) score -= rainyDays * 6
+    if (indoorClusters.has(key)) score += rainyDays * 5
+  }
 
   // Под тип туриста
   if (t === 'family') {

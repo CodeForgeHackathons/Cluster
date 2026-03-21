@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   db:
@@ -37,6 +37,7 @@ services:
       # Business partner features
       BUSINESS_PARTNER_ENABLED: "True"
       SPECIAL_OFFERS_ENABLED: "True"
+      SECRET_KEY: "change-me-in-production-use-long-random-string"
       # AI features
       DEEPSEEK_API_KEY: ""
       DEEPSEEK_BASE_URL: https://api.deepseek.com
@@ -81,4 +82,3 @@ volumes:
 networks:
   cluster_network:
     driver: bridge
-

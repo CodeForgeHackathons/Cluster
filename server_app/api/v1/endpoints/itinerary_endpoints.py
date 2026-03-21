@@ -49,6 +49,20 @@ SEASON_BEST: dict[str, List[str]] = {
     "cl6": ["autumn", "winter"],
 }
 
+# Кластеры, которые плохо подходят для конкретного сезона
+SEASON_WORST: dict[str, List[str]] = {
+    "cl1": ["winter"],          # море зимой — не лучшая идея
+    "cl2": ["winter"],          # природа/озеро зимой скучновато
+    "cl4": ["summer", "winter"],# вино лучше весной/осенью
+    "cl5": ["winter"],          # дети — лучше в тепло
+    "cl6": ["spring", "summer"],# станица/ремёсла — осень/зима атмосфернее
+}
+
+# Кластеры с преимущественно outdoor-активностями (штраф при дождях)
+OUTDOOR_CLUSTERS = {"cl1", "cl2", "cl5"}
+# Кластеры с indoor-активностями (бонус при дождях)
+INDOOR_CLUSTERS = {"cl3", "cl4", "cl6"}
+
 KEY_HINTS: dict[str, str] = {
     "cl1": "мы поставили акцент на море рядом",
     "cl2": "добавили зелёную паузу у воды",
@@ -69,10 +83,16 @@ def _place_to_candidate(place) -> CandidateInput:
     rating = float(place.rating) if hasattr(place, "rating") else 0.0
     price = float(place.price) if place.price is not None else 0.0
     desc = place.description or place.description_ai or ""
+    cluster_key = place.place_type or "general"
+    seasons_best = SEASON_BEST.get(cluster_key, [])
+    is_outdoor = cluster_key in OUTDOOR_CLUSTERS
+    indoor_opts = ["помещение", "дегустации", "мастерские"] if cluster_key in INDOOR_CLUSTERS else ["кафе рядом"]
+    outdoor_opts = ["прогулки", "пляж", "набережная"] if is_outdoor else ["прогулки"]
+
     return CandidateInput(
         # id нужен для восстановления clusterId: в генераторе мы делаем split по '-'
-        id=f"{place.place_type or 'general'}-p{place.place_id}",
-        clusterId=place.place_type or "general",
+        id=f"{cluster_key}-p{place.place_id}",
+        clusterId=cluster_key,
         title=place.name or "",
         location=place.location or "",
         coordinates=CoordinatesInput(lat=DEFAULT_COORDS["lat"], lon=DEFAULT_COORDS["lon"]),
@@ -80,11 +100,11 @@ def _place_to_candidate(place) -> CandidateInput:
         cost=price,
         fact=place.interesting_fact or "",
         description=desc[:500] if desc else "",
-        seasonsBest=[],
+        seasonsBest=seasons_best,
         availableMonths=[],
-        typeTags=[place.place_type] if place.place_type else [],
-        indoorOptions=["помещение"],
-        outdoorOptions=["прогулки"],
+        typeTags=[cluster_key] if cluster_key else [],
+        indoorOptions=indoor_opts,
+        outdoorOptions=outdoor_opts,
     )
 
 
@@ -102,16 +122,35 @@ def _cluster_key(candidate: CandidateInput) -> str:
     return candidate.id.split("-")[0] if "-" in candidate.id else ""
 
 
-def _score_candidate(c: CandidateInput, traveler_type: str, month: int) -> float:
+def _score_candidate(
+    c: CandidateInput,
+    traveler_type: str,
+    month: int,
+    rainy_days: int = 0,
+) -> float:
     season = _month_to_season(month)
     key = _cluster_key(c)
     title = c.title.lower()
     location = c.location.lower()
     score = 0.0
 
+    # --- Сезонность (главный фактор) ---
     best = SEASON_BEST.get(key)
-    if best and season in best:
-        score += 10
+    if best:
+        if season in best:
+            score += 40          # свой сезон — сильный бонус
+        else:
+            worst = SEASON_WORST.get(key, [])
+            if season in worst:
+                score -= 25      # явно не свой сезон — штраф
+            # иначе нейтральный сезон: без бонуса и без штрафа
+
+    # --- Погода (дождливые дни в поездке) ---
+    if rainy_days > 0:
+        if key in OUTDOOR_CLUSTERS:
+            score -= rainy_days * 6   # outdoor-кластеры теряют при дождях
+        if key in INDOOR_CLUSTERS:
+            score += rainy_days * 5   # indoor выигрывают при дождях
 
     if traveler_type == "family":
         if "дет" in title:
@@ -284,9 +323,11 @@ def generate_itinerary(
 
     weather_by_day = payload.weatherByDay or []
 
+    rainy_days = sum(1 for w in weather_by_day if w.isRainy)
+
     sorted_candidates = sorted(
         candidates,
-        key=lambda c: _score_candidate(c, traveler_type, month),
+        key=lambda c: _score_candidate(c, traveler_type, month, rainy_days),
         reverse=True,
     )
 
