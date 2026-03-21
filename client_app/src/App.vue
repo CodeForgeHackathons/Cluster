@@ -14,7 +14,6 @@ const selectedCluster = ref<Cluster | null>(null)
 const clustersRef = ref<Map<string, Cluster> | null>(null)
 const clustersLoading = ref(false)
 
-// "Маршрут" хранится в памяти: без запросов в бэкенд.
 const routePlaces = ref<Place[]>([])
 const routePlaceIds = computed(() => new Set(routePlaces.value.map((p) => p.id)))
 
@@ -60,8 +59,6 @@ function backToLanding(): void {
 }
 
 function backFromPlanner(): void {
-  // Возвращаемся в “Кластер”, если он был открыт, иначе на лендинг.
-  // Важно: не сбрасываем `selectedCluster`, иначе `ClusterPage` (v-if) не отрендерится.
   mode.value = selectedCluster.value ? 'cluster' : 'landing'
   isPlannerOpen.value = false
 }
@@ -82,8 +79,6 @@ watch(
       return
     }
 
-    // Открываем планировщик “для туриста” после добавления первого места,
-    // чтобы шаг “когда еду / кто я” был в потоке выбора, а не в отдельной кнопке.
     if (len === 1 && !autoPlannerOpenedOnce.value && mode.value === 'cluster' && selectedCluster.value) {
       autoPlannerOpenedOnce.value = true
       mode.value = 'plan'
@@ -120,65 +115,67 @@ function togglePlaceInRoute(place: Place): void {
     @toggleRoutePlace="togglePlaceInRoute"
   />
 
+  <!-- Route FAB -->
   <button
     v-if="mode !== 'plan' && mode !== 'partner'"
     type="button"
-    class="routeFab"
+    class="route-fab"
     :aria-label="routePlaces.length > 0 ? `Открыть маршрут. В нём ${routePlaces.length} мест` : 'Подобрать маршрут'"
     @click="routePlaces.length > 0 ? (isRouteOpen = !isRouteOpen) : openPlanner()"
   >
-    <span class="routeFab__icon" aria-hidden="true">⟶</span>
-    <span class="routeFab__label">{{ routePlaces.length > 0 ? `Маршрут: ${routePlaces.length}` : 'Подобрать маршрут' }}</span>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+    </svg>
+    <span>{{ routePlaces.length > 0 ? `Маршрут: ${routePlaces.length}` : 'Подобрать маршрут' }}</span>
   </button>
 
-  <transition name="routeDrawer">
-    <div v-if="isRouteOpen" class="routeDrawerOverlay" role="dialog" aria-modal="true">
-      <div class="routeDrawer">
-        <div class="routeDrawer__header">
-          <div class="routeDrawer__title">Ваш маршрут</div>
-          <button type="button" class="routeDrawer__close" @click="isRouteOpen = false">
-            ✕
+  <!-- Route Drawer -->
+  <transition name="drawer">
+    <div v-if="isRouteOpen" class="route-drawer-overlay" role="dialog" aria-modal="true">
+      <div class="route-drawer">
+        <div class="route-drawer__header">
+          <h2 class="route-drawer__title">Ваш маршрут</h2>
+          <button type="button" class="route-drawer__close" @click="isRouteOpen = false">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
           </button>
         </div>
 
-        <div class="routeDrawer__list" role="list">
+        <div class="route-drawer__list" role="list">
           <div
             v-for="p in routePlaces"
             :key="p.id"
-            class="routeDrawerItem"
+            class="route-item"
             role="listitem"
           >
-            <img :src="p.photo" class="routeDrawerItem__img" :alt="p.title" />
-            <div class="routeDrawerItem__body">
-              <div class="routeDrawerItem__top">
-                <div class="routeDrawerItem__title">{{ p.title }}</div>
-                <div class="routeDrawerItem__cost">{{ p.cost }} ₽</div>
+            <img :src="p.photo" class="route-item__img" :alt="p.title" />
+            <div class="route-item__body">
+              <div class="route-item__top">
+                <span class="route-item__title">{{ p.title }}</span>
+                <span class="route-item__cost">{{ p.cost.toLocaleString('ru-RU') }} ₽</span>
               </div>
-              <div class="routeDrawerItem__loc">{{ p.location }}</div>
-              <div class="routeDrawerItem__actions">
-                <button
-                  type="button"
-                  class="routeDrawerItem__btn"
-                  @click="togglePlaceInRoute(p)"
-                >
-                  Убрать
-                </button>
-              </div>
+              <span class="route-item__loc">{{ p.location }}</span>
+              <button
+                type="button"
+                class="route-item__remove"
+                @click="togglePlaceInRoute(p)"
+              >
+                Убрать
+              </button>
             </div>
           </div>
         </div>
 
-        <div class="routeDrawer__footer">
-          <div class="routeDrawer__footerRow">
-            <div class="routeDrawer__hint">Выберите места и соберите маршрут.</div>
-            <button
-              type="button"
-              class="routeDrawer__planBtn"
-              @click="openPlanner"
-            >
-              Собрать маршрут
-            </button>
-          </div>
+        <div class="route-drawer__footer">
+          <p class="route-drawer__hint">Выберите места и соберите маршрут.</p>
+          <button
+            type="button"
+            class="route-drawer__plan"
+            @click="openPlanner"
+          >
+            Собрать маршрут
+          </button>
         </div>
       </div>
     </div>
@@ -195,211 +192,235 @@ function togglePlaceInRoute(place: Place): void {
 </template>
 
 <style scoped>
-.routeFab {
+/* Route FAB */
+.route-fab {
   position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 20;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 50;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(20, 20, 30, 0.55);
-  backdrop-filter: blur(14px);
-  color: rgba(255, 255, 255, 0.98);
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  font-size: 14px;
+  font-weight: 600;
+  color: #000;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-full);
   cursor: pointer;
-  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.35);
-  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+  box-shadow: var(--shadow-lg);
+  transition: all var(--transition-fast);
 }
 
-.routeFab:hover {
+.route-fab:hover {
+  background: var(--accent-light);
   transform: translateY(-2px);
-  border-color: rgba(0, 194, 255, 0.65);
-  background: rgba(20, 20, 30, 0.7);
+  box-shadow: var(--shadow-xl);
 }
 
-.routeFab__icon {
-  font-size: 16px;
-}
-
-.routeFab__label {
-  font-weight: 800;
-  letter-spacing: 0.2px;
-}
-
-.routeDrawerOverlay {
+/* Route Drawer Overlay */
+.route-drawer-overlay {
   position: fixed;
   inset: 0;
-  z-index: 30;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(6px);
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: flex-end;
   justify-content: center;
 }
 
-.routeDrawer {
-  width: min(720px, 100%);
-  max-height: 78vh;
-  border-radius: 22px 22px 0 0;
-  background: rgba(25, 25, 35, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(18px) saturate(140%);
-  box-shadow: 0 -30px 120px rgba(0, 0, 0, 0.55);
+/* Route Drawer */
+.route-drawer {
+  width: 100%;
+  max-width: 600px;
+  max-height: 80vh;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-.routeDrawer__header {
+.route-drawer__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 16px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.routeDrawer__title {
-  color: rgba(255, 255, 255, 0.98);
-  font-weight: 900;
-  letter-spacing: 0.2px;
+.route-drawer__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
-.routeDrawer__close {
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.95);
-  border-radius: 12px;
-  padding: 8px 10px;
-  cursor: pointer;
-}
-
-.routeDrawer__list {
-  padding: 10px 12px 0;
-  overflow: auto;
-  max-height: 58vh;
-}
-
-.routeDrawerItem {
+.route-drawer__close {
   display: flex;
-  gap: 12px;
-  padding: 10px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
-  margin-bottom: 10px;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
-.routeDrawerItem__img {
-  width: 92px;
-  height: 62px;
+.route-drawer__close:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.route-drawer__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Route Item */
+.route-item {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.route-item__img {
+  width: 80px;
+  height: 60px;
   object-fit: cover;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
 }
 
-.routeDrawerItem__body {
+.route-item__body {
   flex: 1;
   min-width: 0;
-  color: rgba(255, 255, 255, 0.98);
-}
-
-.routeDrawerItem__top {
   display: flex;
-  gap: 10px;
-  justify-content: space-between;
-  align-items: baseline;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
-.routeDrawerItem__title {
-  font-weight: 900;
+.route-item__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.route-item__title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.routeDrawerItem__cost {
-  font-weight: 900;
+.route-item__cost {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-light);
+  flex-shrink: 0;
 }
 
-.routeDrawerItem__loc {
-  opacity: 0.9;
-  font-size: 13px;
-  margin-top: 3px;
+.route-item__loc {
+  font-size: 12px;
+  color: var(--text-tertiary);
 }
 
-.routeDrawerItem__actions {
-  margin-top: 8px;
-}
-
-.routeDrawerItem__btn {
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.07);
-  color: rgba(255, 255, 255, 0.95);
-  border-radius: 12px;
-  padding: 8px 10px;
+.route-item__remove {
+  align-self: flex-start;
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
   cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
-.routeDrawer__footer {
-  padding: 12px 16px 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+.route-item__remove:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
-.routeDrawer__footerRow {
+/* Route Drawer Footer */
+.route-drawer__footer {
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-4);
 }
 
-.routeDrawer__planBtn {
-  border-radius: 14px;
-  border: 1px solid rgba(0, 194, 255, 0.5);
-  background: rgba(0, 194, 255, 0.12);
-  color: rgba(255, 255, 255, 0.98);
-  padding: 10px 12px;
-  font-weight: 1000;
-  cursor: pointer;
-  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
-  white-space: nowrap;
-}
-
-.routeDrawer__planBtn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.routeDrawer__planBtn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  border-color: rgba(0, 194, 255, 0.75);
-  background: rgba(0, 194, 255, 0.18);
-}
-
-.routeDrawer__hint {
-  opacity: 0.85;
-  color: rgba(255, 255, 255, 0.95);
+.route-drawer__hint {
   font-size: 13px;
+  color: var(--text-tertiary);
 }
 
-@media (max-width: 720px) {
-  .routeDrawer__footerRow {
-    flex-direction: column;
-    align-items: stretch;
-  }
+.route-drawer__plan {
+  padding: var(--space-3) var(--space-5);
+  font-size: 14px;
+  font-weight: 600;
+  color: #000;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
 
-  .routeDrawer__planBtn {
+.route-drawer__plan:hover {
+  background: var(--accent-light);
+}
+
+/* Transitions */
+.drawer-enter-active,
+.drawer-leave-active {
+  transition: opacity 200ms ease;
+}
+
+.drawer-enter-active .route-drawer,
+.drawer-leave-active .route-drawer {
+  transition: transform 200ms ease;
+}
+
+.drawer-enter-from,
+.drawer-leave-to {
+  opacity: 0;
+}
+
+.drawer-enter-from .route-drawer,
+.drawer-leave-to .route-drawer {
+  transform: translateY(100%);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .route-drawer__footer {
+    flex-direction: column;
+  }
+  
+  .route-drawer__plan {
     width: 100%;
   }
-}
-
-.routeDrawer-enter-active,
-.routeDrawer-leave-active {
-  transition: opacity 180ms ease;
-}
-
-.routeDrawer-enter-from,
-.routeDrawer-leave-to {
-  opacity: 0;
 }
 </style>
