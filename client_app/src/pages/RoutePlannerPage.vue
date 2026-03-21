@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getApiBase } from '../api/client'
 import type { Place } from '../types/cluster'
 import RouteMap from '../components/RouteMap.vue'
@@ -16,6 +16,24 @@ const emit = defineEmits<{
   (e: 'back'): void
   (e: 'openClusterByPlaceId', placeId: string): void
 }>()
+
+const logisticsRefs = ref<Array<HTMLElement | null>>([])
+const logisticsHeight = ref<number | null>(null)
+
+const setLogisticsRef = (idx: number) => (el: HTMLElement | null) => {
+  logisticsRefs.value[idx] = el
+}
+
+const updateLogisticsHeight = async (): Promise<void> => {
+  await nextTick()
+  const heights = logisticsRefs.value.map((el) => (el ? el.scrollHeight : 0))
+  const max = Math.max(0, ...heights)
+  logisticsHeight.value = max > 0 ? max : null
+}
+
+const onResize = (): void => {
+  void updateLogisticsHeight()
+}
 
 function todayISODate(): string {
   const d = new Date()
@@ -71,6 +89,23 @@ type DayPlan = {
 const generated = ref(false)
 const days = ref<DayPlan[]>([])
 const overallWhy = ref('')
+
+onMounted(() => {
+  void updateLogisticsHeight()
+  window.addEventListener('resize', onResize)
+})
+
+watch(
+  () => days.value,
+  () => {
+    void updateLogisticsHeight()
+  },
+  { deep: true },
+)
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', onResize)
+})
 
 type WeatherDay = {
   maxTemp: number
@@ -644,16 +679,25 @@ function offerForPlace(place: Place): string {
           ? 'весенний пик'
           : 'осеннее предложение'
 
-  const offerByCluster: Record<string, string> = {
-    cl1: 'вечерний видовой сет',
-    cl2: 'тихая прогулка у воды',
-    cl3: 'кофе + фокусный сценарий',
-    cl4: 'дегустация со спецценой',
-    cl5: 'семейный мастер-класс',
-    cl6: 'ремесленная история без толпы',
+  const offersByCluster: Record<string, string[]> = {
+    cl1: ['закатный маршрут у моря', 'прогулка по набережной + чай', 'видовой сет у воды'],
+    cl2: ['тихая прогулка у воды', 'зелёная пауза и пикник', 'маршрут у озера без спешки'],
+    cl3: ['кофе + фокусный сценарий', 'рабочая терраса с видом', 'видовая точка и тихий ритм'],
+    cl4: ['дегустация со спецценой', 'вкусный сет локальных продуктов', 'история места + дегустация'],
+    cl5: ['семейный мастер-класс', 'детская активность + пауза', 'семейный сценарий без спешки'],
+    cl6: ['ремесленная история без толпы', 'тихий маршрут по станице', 'локальные мастерские и фото'],
+    general: ['персональный бонус', 'спокойный сценарий', 'локальный штрих'],
   }
 
-  const offer = offerByCluster[key] ?? 'персональный бонус'
+  const variants = offersByCluster[key] ?? offersByCluster.general
+
+  const basis = `${place.id}|${place.title}|${seasonSuffix}`
+  let hash = 0
+  for (let i = 0; i < basis.length; i += 1) {
+    hash = (hash * 31 + basis.charCodeAt(i)) % 100000
+  }
+  const offer = variants[hash % variants.length] ?? variants[0] ?? 'персональный бонус'
+
   return `Спецпредложение (${seasonSuffix}): ${offer}.`
 }
 
@@ -1034,7 +1078,11 @@ onBeforeUnmount(() => {
               </article>
             </div>
 
-            <div class="plannerDay__logistics">
+            <div
+              class="plannerDay__logistics"
+              :ref="setLogisticsRef(d.dayIndex)"
+              :style="{ height: logisticsHeight ? `${logisticsHeight}px` : 'auto' }"
+            >
               <div class="plannerDay__logTitle">Логистика дня</div>
               <div class="plannerDay__logLine">
                 <span class="plannerDay__logKey">Транспорт:</span>
@@ -1053,26 +1101,7 @@ onBeforeUnmount(() => {
                 {{ offerForDay(d) }}
               </div>
 
-              <div class="plannerDay__map">
-                <div class="plannerDay__logTitle">Мини-карта</div>
-                <iframe
-                  v-if="osmEmbedUrlForDay(d)"
-                  :src="osmEmbedUrlForDay(d)"
-                  class="plannerDay__mapFrame"
-                  loading="lazy"
-                  referrerpolicy="no-referrer"
-                  aria-label="Мини-карта дня"
-                />
-                <a
-                  v-if="osmLinkUrlForDay(d)"
-                  class="plannerDay__mapLink"
-                  :href="osmLinkUrlForDay(d)"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Открыть в OpenStreetMap
-                </a>
-              </div>
+
             </div>
           </section>
         </div>
@@ -1798,6 +1827,9 @@ onBeforeUnmount(() => {
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .plannerDay__logTitle {
