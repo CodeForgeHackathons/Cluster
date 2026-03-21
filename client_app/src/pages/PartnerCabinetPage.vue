@@ -224,6 +224,40 @@ async function loadData(): Promise<void> {
   error.value = ''
   try {
     places.value = await fetchPartnerPlaces()
+    console.log('Загруженные места:', places.value)
+    console.log('Количество мест:', places.value.length)
+    if (places.value.length > 0) {
+      const firstPlace = places.value[0]
+      const lastPlace = places.value[places.value.length - 1]
+      console.log('Первое место (детально):', firstPlace)
+      console.log('Последнее место (детально):', lastPlace)
+      console.log('Последнее место (JSON):', JSON.stringify(lastPlace, null, 2))
+      console.log('Поля последнего места:', {
+        place_type: lastPlace.place_type,
+        cluster_id: lastPlace.cluster_id,
+        name: lastPlace.name,
+        id: lastPlace.place_id
+      })
+      
+      // Проверяем детальную информацию о последнем месте
+      fetchPartnerPlaceDetail(lastPlace.place_id).then(detail => {
+        console.log('Детальная информация о последнем месте:', detail)
+        console.log('Детальные поля:', {
+          cluster_id: detail.cluster_id,
+          place_type: detail.place_type,
+          name: detail.name
+        })
+      }).catch(err => {
+        console.log('Ошибка при загрузке детальной информации:', err)
+      })
+    }
+    console.log('Доступные кластеры:', partnerClusters.value)
+    if (partnerClusters.value.length > 0) {
+      const firstCluster = partnerClusters.value[0]
+      console.log('Первый кластер (детально):', firstCluster)
+      console.log('Первый кластер (JSON):', JSON.stringify(firstCluster, null, 2))
+      console.log('ID первого кластера:', firstCluster.id)
+    }
   } catch (e) {
     error.value = (e as Error)?.message ?? 'Ошибка загрузки'
   } finally {
@@ -231,12 +265,43 @@ async function loadData(): Promise<void> {
   }
 }
 
+function getPlacesForCluster(clusterId: string): PartnerPlace[] {
+  const filtered = places.value.filter(place => {
+    // Сначала проверяем cluster_id (если есть)
+    if (place.cluster_id === clusterId) {
+      console.log(`Место "${place.name}" привязано к кластеру "${clusterId}" по cluster_id`)
+      return true
+    }
+    
+    // Если нет cluster_id, проверяем place_type (временное решение)
+    if (place.place_type === clusterId) {
+      console.log(`Место "${place.name}" привязано к кластеру "${clusterId}" по place_type`)
+      return true
+    }
+    
+    return false
+  })
+  console.log(`Кластер "${clusterId}": найдено ${filtered.length} мест`)
+  return filtered
+}
+
+function getPlacesWord(count: number): string {
+  if (count === 1) return 'место'
+  if (count >= 2 && count <= 4) return 'места'
+  return 'мест'
+}
+
 async function loadPartnerClusters(): Promise<void> {
   clustersError.value = ''
   clustersLoading.value = true
   try {
-    partnerClusters.value = await fetchPartnerClusters()
+    console.log('Начинаю загрузку кластеров...')
+    const clusters = await fetchPartnerClusters()
+    console.log('Кластеры загружены:', clusters)
+    partnerClusters.value = clusters
+    console.log('partnerClusters.value установлено:', partnerClusters.value)
   } catch (e) {
+    console.error('Ошибка при загрузке кластеров:', e)
     clustersError.value = (e as Error)?.message ?? 'Не удалось загрузить кластеры'
     partnerClusters.value = []
   } finally {
@@ -342,6 +407,12 @@ async function createPlace(): Promise<void> {
 
   creating.value = true
   createError.value = ''
+  console.log('=== СОЗДАНИЕ МЕСТА ===')
+  console.log('formClusterId.value:', formClusterId.value)
+  console.log('formName.value:', formName.value)
+  console.log('formType.value:', formType.value)
+  console.log('partnerClusters.value:', partnerClusters.value)
+  
   const payload: PartnerPlaceCreate = {
     business_id: currentPartner.value?.id ?? 0,
     cluster_id: formClusterId.value.trim() || null,
@@ -353,6 +424,10 @@ async function createPlace(): Promise<void> {
     price: formPrice.value === '' ? null : Number(formPrice.value),
     images: formImageUrl.value.trim() ? [formImageUrl.value.trim()] : [],
   }
+
+  console.log('Создание места с payload:', JSON.stringify(payload, null, 2))
+  console.log('Выбранный кластер ID:', formClusterId.value.trim())
+  console.log('Доступные кластеры для выбора:', partnerClusters.value.map(c => ({ id: c.id, title: c.title })))
 
   try {
     await createPartnerPlace(payload)
@@ -567,9 +642,9 @@ onMounted(async () => {
         <section v-else class="partner__section">
           <div v-if="selectedPlaceLoading" class="partner__loading">Открываем место…</div>
 
-          <!-- Список кластеров -->
+          <!-- Список кластеров с местами -->
           <div v-if="!showCreateClusterForm && !showCreateForm && !selectedPlace" class="partner__clusters">
-            <h3 class="partner__sectionTitle">Ваши кластеры</h3>
+            <h3 class="partner__sectionTitle">Ваши кластеры и места</h3>
             <div v-if="clustersLoading" class="partner__loading">Загрузка кластеров…</div>
             <div v-else-if="clustersError" class="partner__error">{{ clustersError }}</div>
             <div v-else-if="partnerClusters.length === 0" class="partner__empty">
@@ -585,6 +660,43 @@ onMounted(async () => {
                   <div class="partner__clusterTitle">{{ cluster.title }}</div>
                   <div v-if="cluster.meta" class="partner__clusterMeta">{{ cluster.meta }}</div>
                   <div class="partner__clusterStatus">Статус: {{ cluster.status }}</div>
+                </div>
+                
+                <!-- Места в этом кластере -->
+                <div class="partner__clusterPlaces">
+                  <div class="partner__clusterPlacesHeader">
+                    <span class="partner__clusterPlacesTitle">Места в кластере</span>
+                    <span class="partner__clusterPlacesCount">
+                      {{ getPlacesForCluster(cluster.id).length }} {{ getPlacesWord(getPlacesForCluster(cluster.id).length) }}
+                    </span>
+                  </div>
+                  
+                  <div v-if="getPlacesForCluster(cluster.id).length === 0" class="partner__emptyCluster">
+                    В этом кластере пока нет мест
+                  </div>
+                  
+                  <div v-else class="partner__placesInCluster">
+                    <article
+                      v-for="place in getPlacesForCluster(cluster.id)"
+                      :key="place.place_id"
+                      class="partnerPlace partnerPlace--inCluster"
+                      @click="openPlace(place.place_id)"
+                    >
+                      <img
+                        :src="placePhotoSrc(place)"
+                        class="partnerPlace__img"
+                        :alt="place.name"
+                        referrerpolicy="no-referrer"
+                        loading="lazy"
+                        @error="onPlacePhotoError(place.place_id)"
+                      />
+                      <div class="partnerPlace__body">
+                        <div class="partnerPlace__name">{{ place.name }}</div>
+                        <div class="partnerPlace__meta">{{ place.location ?? place.place_type ?? '—' }}</div>
+                        <div v-if="place.price != null" class="partnerPlace__price">{{ place.price }} ₽</div>
+                      </div>
+                    </article>
+                  </div>
                 </div>
               </div>
             </div>
@@ -635,29 +747,6 @@ onMounted(async () => {
               </div>
             </div>
           </section>
-
-          <div class="partner__places">
-            <article
-              v-for="p in places"
-              :key="p.place_id"
-              class="partnerPlace"
-              @click="openPlace(p.place_id)"
-            >
-              <img
-                :src="placePhotoSrc(p)"
-                class="partnerPlace__img"
-                :alt="p.name"
-                referrerpolicy="no-referrer"
-                loading="lazy"
-                @error="onPlacePhotoError(p.place_id)"
-              />
-              <div class="partnerPlace__body">
-                <div class="partnerPlace__name">{{ p.name }}</div>
-                <div class="partnerPlace__meta">{{ p.location ?? p.place_type ?? '—' }}</div>
-                <div v-if="p.price != null" class="partnerPlace__price">{{ p.price }} ₽</div>
-              </div>
-            </article>
-          </div>
         </section>
       </template>
     </section>
@@ -668,16 +757,18 @@ onMounted(async () => {
 <style scoped>
 .authCard {
   margin-top: 40px;
-  max-width: 420px;
+  max-width: 440px;
   margin-left: auto;
   margin-right: auto;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.07);
-  padding: 24px 20px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+  padding: 28px 24px;
   display: flex;
   flex-direction: column;
   gap: 0;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
 }
 
 .authCard__tabs {
@@ -727,12 +818,17 @@ onMounted(async () => {
   width: 100%;
   overflow-x: hidden;
   color: rgba(255, 255, 255, 0.98);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
 }
 
 .partner__bg {
   position: fixed;
   inset: 0;
-  background: linear-gradient(160deg, #1a1b26 0%, #252836 50%, #1e2030 100%);
+  background: 
+    radial-gradient(circle at 20% 50%, rgba(0, 194, 255, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 40% 20%, rgba(236, 72, 153, 0.08) 0%, transparent 50%),
+    linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
   z-index: 0;
 }
 
@@ -749,25 +845,32 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 16px 20px;
+  padding: 20px 24px;
   flex-wrap: wrap;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
 }
 
 .partner__backBtn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.98);
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
-  font-size: 15px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
 }
 
 .partner__backBtn:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
 }
 
 .partner__headerTitle {
@@ -776,19 +879,34 @@ onMounted(async () => {
 }
 
 .partner__newBtn {
-  border: 1px solid rgba(0, 194, 255, 0.45);
-  background: rgba(0, 194, 255, 0.15);
-  color: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(0, 194, 255, 0.4);
+  background: linear-gradient(135deg, rgba(0, 194, 255, 0.15), rgba(0, 194, 255, 0.08));
+  color: rgba(255, 255, 255, 0.95);
   border-radius: 12px;
-  padding: 10px 14px;
+  padding: 12px 16px;
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(0, 194, 255, 0.2);
+}
+
+.partner__newBtn:hover {
+  background: linear-gradient(135deg, rgba(0, 194, 255, 0.25), rgba(0, 194, 255, 0.15));
+  border-color: rgba(0, 194, 255, 0.6);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 194, 255, 0.3);
 }
 
 .partner__title {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #ffffff, #e0e7ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .partner__subtitle {
@@ -800,8 +918,8 @@ onMounted(async () => {
 .partner__content {
   position: relative;
   z-index: 2;
-  padding: 0 20px 32px;
-  max-width: 720px;
+  padding: 24px;
+  max-width: 800px;
   margin: 0 auto;
 }
 
@@ -835,16 +953,21 @@ onMounted(async () => {
 
 .partnerPlace {
   display: flex;
-  gap: 14px;
-  padding: 14px;
+  gap: 16px;
+  padding: 16px;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
   cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .partnerPlace:hover {
-  border-color: rgba(0, 194, 255, 0.45);
+  border-color: rgba(0, 194, 255, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 194, 255, 0.15);
 }
 
 .partner__detailNav {
@@ -921,10 +1044,14 @@ onMounted(async () => {
 }
 
 .partner__sectionTitle {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
-  margin-bottom: 16px;
-  color: rgba(255, 255, 255, 0.98);
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, #ffffff, #60a5fa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.3px;
 }
 
 .partner__empty {
@@ -941,39 +1068,113 @@ onMounted(async () => {
 }
 
 .partner__clusterItem {
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.06);
-  padding: 16px;
-  transition: border-color 160ms ease;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  padding: 20px;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .partner__clusterItem:hover {
-  border-color: rgba(0, 194, 255, 0.45);
+  border-color: rgba(0, 194, 255, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 194, 255, 0.15);
 }
 
 .partner__clusterInfo {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.partner__clusterPlaces {
+  margin-top: 16px;
+}
+
+.partner__clusterPlacesHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.partner__clusterPlacesTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.partner__clusterPlacesCount {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(0, 194, 255, 0.8);
+  background: rgba(0, 194, 255, 0.1);
+  padding: 4px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 194, 255, 0.2);
+}
+
+.partner__emptyCluster {
+  text-align: center;
+  padding: 20px;
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+}
+
+.partner__placesInCluster {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.partnerPlace--inCluster {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+  padding: 12px;
+  transition: all 0.2s ease;
+  transform: translateX(0);
+}
+
+.partnerPlace--inCluster:hover {
+  border-color: rgba(0, 194, 255, 0.3);
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0, 194, 255, 0.1);
 }
 
 .partner__clusterTitle {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.98);
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 4px;
 }
 
 .partner__clusterMeta {
   font-size: 14px;
-  opacity: 0.85;
-  color: rgba(255, 255, 255, 0.9);
+  opacity: 0.8;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 4px;
 }
 
 .partner__clusterStatus {
   font-size: 12px;
   opacity: 0.7;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(0, 194, 255, 0.8);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .partner__createSection {
@@ -1055,27 +1256,47 @@ onMounted(async () => {
 }
 
 .createPlaceCard {
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.08);
-  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+  padding: 24px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 
 .createPlaceCard__title {
-  font-size: 18px;
-  font-weight: 800;
-  margin-bottom: 10px;
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, #ffffff, #a5b4fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .createInput {
   width: 100%;
-  margin-top: 8px;
+  margin-top: 12px;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.98);
-  padding: 10px 12px;
+  color: rgba(255, 255, 255, 0.95);
+  padding: 14px 16px;
   box-sizing: border-box;
+  font-size: 15px;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+}
+
+.createInput:focus {
+  outline: none;
+  border-color: rgba(0, 194, 255, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(0, 194, 255, 0.1);
+}
+
+.createInput::placeholder {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .createInput--textarea {

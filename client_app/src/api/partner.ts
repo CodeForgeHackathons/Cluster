@@ -15,6 +15,7 @@ export type PartnerPlace = {
   price: number | null;
   photo: string;
   interesting_fact: string | null;
+  cluster_id?: string | null;
 };
 
 export type PartnerPlaceDetail = {
