@@ -11,12 +11,14 @@
 
 from __future__ import annotations
 
+import sys
 from decimal import Decimal
+
+sys.path.append("/app")
 
 from core.config import settings
 from database.session import Base, LocalSession, engine
-from models import BusinessRepresentative, Place, PlaceImage
-
+from models import BusinessRepresentative, Cluster, Place, PlaceImage
 
 # Реальные фото Краснодарского края и тематические (Unsplash, бесплатная лицензия)
 CLUSTER_IMAGES: dict[str, list[str]] = {
@@ -56,7 +58,7 @@ CLUSTER_IMAGES: dict[str, list[str]] = {
 DEMO_AVALIN_TOURS: dict[str, list[str]] = {
     "cl1": [
         "https://demo.avalin.ru/tours/sea-hotel-360",
-        "https://demo.avalin.ru/tours/beach-walk-360", 
+        "https://demo.avalin.ru/tours/beach-walk-360",
         "https://demo.avalin.ru/tours/sunset-view-360",
     ],
     "cl2": [
@@ -172,7 +174,11 @@ def main() -> None:
         seed_email = "seed_demo_biz@example.com"
 
         # 1) business representative (минимум для внешнего ключа places.business_id)
-        biz = db.query(BusinessRepresentative).filter(BusinessRepresentative.username == seed_username).first()
+        biz = (
+            db.query(BusinessRepresentative)
+            .filter(BusinessRepresentative.username == seed_username)
+            .first()
+        )
         if biz is None:
             biz = BusinessRepresentative(
                 username=seed_username,
@@ -194,11 +200,24 @@ def main() -> None:
             facts = cluster["facts"]
             descs = cluster["descs"]
 
+            cluster_obj = db.get(Cluster, cluster_id)
+            if cluster_obj is None:
+                cluster_obj = Cluster(
+                    id=cluster_id,
+                    business_id=biz.id,
+                    title=title,
+                    meta=meta,
+                    description=descs[0] if descs else None,
+                    status="approved",
+                )
+                db.add(cluster_obj)
+                db.commit()
+                db.refresh(cluster_obj)
+
             already_exists = (
                 db.query(Place)
                 .filter(Place.business_id == biz.id, Place.place_type == cluster_id)
                 .first()
-                is not None
             )
             if already_exists:
                 continue
@@ -207,25 +226,37 @@ def main() -> None:
                 # Получаем AVALIN тур для этого места
                 avalin_tours = DEMO_AVALIN_TOURS.get(cluster_id, [])
                 avalin_url = avalin_tours[i] if i < len(avalin_tours) else None
-                
+
                 place = Place(
                     business_id=biz.id,
+                    cluster_id=cluster_id,
                     name=title if i == 0 else f"{title} · вариант {i + 1}",
                     place_type=cluster_id,
                     location=meta,
                     interesting_fact=facts[i] if i < len(facts) else "",
                     description=descs[i] if i < len(descs) else "",
                     description_ai=descs[i] if i < len(descs) else "",
-                    price=price * (Decimal("0.92") if i == 1 else Decimal("1.04") if i == 2 else Decimal("1.00")),
+                    price=price
+                    * (
+                        Decimal("0.92")
+                        if i == 1
+                        else Decimal("1.04")
+                        if i == 2
+                        else Decimal("1.00")
+                    ),
                     avalin_tour_url=avalin_url,
                 )
                 db.add(place)
                 db.flush()  # чтобы place_id появился
 
                 # Реальные тематические фото (Unsplash)
-                img_urls = CLUSTER_IMAGES.get(cluster_id, [
-                    "https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=600&h=400&fit=crop",
-                ] * 2)
+                img_urls = CLUSTER_IMAGES.get(
+                    cluster_id,
+                    [
+                        "https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=600&h=400&fit=crop",
+                    ]
+                    * 2,
+                )
                 for j in range(1, 3):
                     url = img_urls[(i + j) % len(img_urls)]
                     img = PlaceImage(place_id=place.place_id, image_url=url)
@@ -240,4 +271,3 @@ def main() -> None:
 if __name__ == "__main__":
     print("DATABASE_URL:", settings.DATABASE_URL)
     main()
-

@@ -1,8 +1,7 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean
+from database.session import Base
+from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-
-from database.session import Base
 
 
 class BusinessRepresentative(Base):
@@ -37,3 +36,10 @@ class BusinessRepresentative(Base):
         cascade="all, delete-orphan",
     )
 
+    # Кластеры, созданные этим бизнес-представителем
+    clusters = relationship(
+        "Cluster",
+        back_populates="business_rep",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )

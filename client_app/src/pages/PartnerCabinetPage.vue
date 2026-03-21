@@ -12,10 +12,12 @@ import {
   getToken,
   setToken,
   clearToken,
+  fetchPartnerClusters,
   type PartnerPlaceDetail,
   type PartnerPlace,
   type PartnerPlaceUpdate,
   type PartnerProfile,
+  type PartnerCluster,
 } from '../api/partner'
 
 const emit = defineEmits<{
@@ -32,6 +34,9 @@ const authPassword = ref('')
 const authError = ref('')
 const authLoading = ref(false)
 const currentPartner = ref<PartnerProfile | null>(null)
+const partnerClusters = ref<PartnerCluster[]>([])
+const clustersLoading = ref(false)
+const clustersError = ref('')
 
 // ---------- Кабинет ----------
 const places = ref<PartnerPlace[]>([])
@@ -48,6 +53,7 @@ const showEditForm = ref(false)
 const editError = ref('')
 
 const editName = ref('')
+const editClusterId = ref('')
 const editType = ref('')
 const editLocation = ref('')
 const editFact = ref('')
@@ -56,6 +62,7 @@ const editPrice = ref<number | ''>('')
 const editImageUrl = ref('')
 
 const formName = ref('')
+const formClusterId = ref('')
 const formType = ref('')
 const formLocation = ref('')
 const formFact = ref('')
@@ -100,6 +107,8 @@ async function submitAuth(): Promise<void> {
     authEmail.value = ''
     authPassword.value = ''
     authFullName.value = ''
+    await loadData()
+    await loadPartnerClusters()
   } catch (e) {
     authError.value = (e as Error)?.message ?? 'Ошибка авторизации'
   } finally {
@@ -143,6 +152,7 @@ function openEditForm(): void {
   if (!selectedPlace.value) return
   const p = selectedPlace.value
   editName.value = p.name
+  editClusterId.value = p.cluster_id ?? ''
   editType.value = p.place_type ?? ''
   editLocation.value = p.location ?? ''
   editFact.value = p.interesting_fact ?? ''
@@ -168,6 +178,7 @@ async function savePlace(): Promise<void> {
   saving.value = true
   editError.value = ''
   const payload: PartnerPlaceUpdate = {
+    cluster_id: editClusterId.value.trim() || null,
     name: editName.value.trim(),
     place_type: editType.value.trim() || null,
     location: editLocation.value.trim() || null,
@@ -190,6 +201,7 @@ async function savePlace(): Promise<void> {
 
 function resetCreateForm(): void {
   formName.value = ''
+  formClusterId.value = ''
   formType.value = ''
   formLocation.value = ''
   formFact.value = ''
@@ -208,6 +220,19 @@ async function loadData(): Promise<void> {
     error.value = (e as Error)?.message ?? 'Ошибка загрузки'
   } finally {
     loading.value = false
+  }
+}
+
+async function loadPartnerClusters(): Promise<void> {
+  clustersError.value = ''
+  clustersLoading.value = true
+  try {
+    partnerClusters.value = await fetchPartnerClusters()
+  } catch (e) {
+    clustersError.value = (e as Error)?.message ?? 'Не удалось загрузить кластеры'
+    partnerClusters.value = []
+  } finally {
+    clustersLoading.value = false
   }
 }
 
@@ -260,10 +285,15 @@ async function createPlace(): Promise<void> {
     createError.value = 'Введите название места'
     return
   }
+  if (!formClusterId.value.trim()) {
+    createError.value = 'Выберите кластер'
+    return
+  }
 
   creating.value = true
   createError.value = ''
   const payload = {
+    cluster_id: formClusterId.value.trim() || null,
     name: formName.value.trim(),
     place_type: formType.value.trim() || null,
     location: formLocation.value.trim() || null,
@@ -286,8 +316,12 @@ async function createPlace(): Promise<void> {
 
 onMounted(async () => {
   await tryRestoreSession()
-  if (currentPartner.value) await loadData()
-  else loading.value = false
+  if (currentPartner.value) {
+    await loadData()
+    await loadPartnerClusters()
+  } else {
+    loading.value = false
+  }
 })
 </script>
 
@@ -429,6 +463,12 @@ onMounted(async () => {
               <div v-if="editError" class="partner__error">{{ editError }}</div>
 
               <input v-model="editName" class="createInput" type="text" placeholder="Название *" />
+              <select v-model="editClusterId" class="createInput">
+                <option value="" disabled>Выберите кластер *</option>
+                <option v-for="c in partnerClusters" :key="c.id" :value="c.id">
+                  {{ c.title }}
+                </option>
+              </select>
               <input v-model="editType" class="createInput" type="text" placeholder="Тип места" />
               <input v-model="editLocation" class="createInput" type="text" placeholder="Локация" />
               <input v-model="editFact" class="createInput" type="text" placeholder="Интересный факт (1-10 слов)" />
@@ -479,6 +519,12 @@ onMounted(async () => {
               <div v-if="createError" class="partner__error">{{ createError }}</div>
 
               <input v-model="formName" class="createInput" type="text" placeholder="Название *" />
+              <select v-model="formClusterId" class="createInput">
+                <option value="" disabled>Выберите кластер *</option>
+                <option v-for="c in partnerClusters" :key="c.id" :value="c.id">
+                  {{ c.title }}
+                </option>
+              </select>
               <input v-model="formType" class="createInput" type="text" placeholder="Тип места" />
               <input v-model="formLocation" class="createInput" type="text" placeholder="Локация" />
               <input v-model="formFact" class="createInput" type="text" placeholder="Интересный факт (1-10 слов)" />

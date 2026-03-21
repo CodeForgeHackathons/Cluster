@@ -4,9 +4,13 @@
  */
 
 export function getApiBase(): string {
-  const env = (import.meta as unknown as { env?: { VITE_API_URL?: string } })
-    .env;
+  const env = (
+    import.meta as unknown as {
+      env?: { VITE_API_URL?: string; VITE_API_BASE_URL?: string };
+    }
+  ).env;
   if (env?.VITE_API_URL) return env.VITE_API_URL.replace(/\/$/, "");
+  if (env?.VITE_API_BASE_URL) return env.VITE_API_BASE_URL.replace(/\/$/, "");
   if (typeof window === "undefined") return "http://localhost:8000";
   const port = window.location?.port;
   if (port === "5173") return "/api";

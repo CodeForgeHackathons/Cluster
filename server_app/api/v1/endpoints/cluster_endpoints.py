@@ -4,13 +4,12 @@ from __future__ import annotations
 
 from typing import List, Optional
 
+from api.deps import get_db
 from fastapi import APIRouter, Depends
+from models import Cluster, Place
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
-
-from api.deps import get_db
-from models import Place
 
 router = APIRouter(prefix="/clusters", tags=["clusters"])
 
@@ -26,12 +25,12 @@ CLUSTER_TITLES: dict[str, str] = {
 
 # Координаты Краснодарского края по типу кластера
 CLUSTER_COORDS: dict[str, dict[str, float]] = {
-    "cl1": {"lat": 43.585, "lon": 39.723},   # побережье Сочи
-    "cl2": {"lat": 45.041, "lon": 37.360},   # природа/озёра
-    "cl3": {"lat": 44.982, "lon": 38.917},   # вид/работа
-    "cl4": {"lat": 44.958, "lon": 37.783},   # вино, Анапа
-    "cl5": {"lat": 45.025, "lon": 37.170},   # семейный
-    "cl6": {"lat": 44.476, "lon": 39.016},   # станица
+    "cl1": {"lat": 43.585, "lon": 39.723},  # побережье Сочи
+    "cl2": {"lat": 45.041, "lon": 37.360},  # природа/озёра
+    "cl3": {"lat": 44.982, "lon": 38.917},  # вид/работа
+    "cl4": {"lat": 44.958, "lon": 37.783},  # вино, Анапа
+    "cl5": {"lat": 45.025, "lon": 37.170},  # семейный
+    "cl6": {"lat": 44.476, "lon": 39.016},  # станица
 }
 
 
@@ -47,6 +46,7 @@ class PlaceInCluster(BaseModel):
     cost: float
     description: str
     reviews_count: int
+    avalin_tour_url: Optional[str] = None
 
 
 class ClusterResponse(BaseModel):
@@ -62,29 +62,26 @@ class ClusterResponse(BaseModel):
 
 @router.get("", response_model=List[ClusterResponse])
 def list_clusters(db: Session = Depends(get_db)) -> List[ClusterResponse]:
-    """Возвращает кластеры (группы мест по place_type) для лендинга."""
+    """Возвращает кластеры (approved) для лендинга."""
     stmt = (
-        select(Place)
-        .order_by(Place.place_type, Place.place_id)
-        .options(joinedload(Place.images), selectinload(Place.reviews))
+        select(Cluster)
+        .where(Cluster.status == "approved")
+        .options(
+            joinedload(Cluster.places).joinedload(Place.images),
+            joinedload(Cluster.places).selectinload(Place.reviews),
+        )
+        .order_by(Cluster.created_at.desc())
     )
-    places = list(db.execute(stmt).unique().scalars().all())
-
-    by_type: dict[str, list] = {}
-    for p in places:
-        key = p.place_type or "general"
-        if key not in by_type:
-            by_type[key] = []
-        by_type[key].append(p)
+    clusters = list(db.execute(stmt).unique().scalars().all())
 
     result: List[ClusterResponse] = []
-    for place_type, plist in by_type.items():
+    for cluster in clusters:
+        plist = list(cluster.places or [])
         if not plist:
             continue
 
-        title = CLUSTER_TITLES.get(place_type) or (plist[0].name or place_type)
-        coords = CLUSTER_COORDS.get(place_type, {"lat": 45.0, "lon": 38.0})
-        meta = plist[0].location or "Краснодарский край"
+        coords = CLUSTER_COORDS.get(cluster.id, {"lat": 45.0, "lon": 38.0})
+        meta = cluster.meta or "Краснодарский край"
 
         ratings = []
         total_reviews = 0
@@ -101,7 +98,7 @@ def list_clusters(db: Session = Depends(get_db)) -> List[ClusterResponse]:
 
             place_items.append(
                 PlaceInCluster(
-                    id=f"{place_type}-p{p.place_id}",
+                    id=f"{cluster.id}-p{p.place_id}",
                     photo=photo,
                     rating=r,
                     title=p.name or "",
@@ -112,6 +109,7 @@ def list_clusters(db: Session = Depends(get_db)) -> List[ClusterResponse]:
                     cost=float(p.price or 0),
                     description=(p.description or p.description_ai or "")[:500],
                     reviews_count=rev_count,
+                    avalin_tour_url=p.avalin_tour_url,
                 )
             )
 
@@ -121,9 +119,9 @@ def list_clusters(db: Session = Depends(get_db)) -> List[ClusterResponse]:
 
         result.append(
             ClusterResponse(
-                id=place_type,
+                id=cluster.id,
                 coverImage=cover,
-                title=title,
+                title=cluster.title,
                 meta=meta,
                 price=round(base_price, 0),
                 rating=round(avg_rating, 1),

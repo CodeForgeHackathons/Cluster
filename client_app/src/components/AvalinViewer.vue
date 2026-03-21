@@ -25,6 +25,12 @@ const viewerRef = ref<HTMLDivElement>()
 const isLoading = ref(true)
 const hasError = ref(false)
 
+const avalinScriptUrl =
+  (import.meta as unknown as { env?: { VITE_AVALIN_CDN_URL?: string } }).env
+    ?.VITE_AVALIN_CDN_URL || 'https://cdn.avalin.ru/viewer/latest/viewer.js'
+
+let avalinScriptPromise: Promise<void> | null = null
+
 // AVALIN viewer configuration
 const viewerConfig = {
   autoplay: props.autoplay,
@@ -59,26 +65,61 @@ onUnmounted(() => {
 function loadAvalinViewer() {
   try {
     console.log('AVALIN: Loading viewer for URL:', props.tourUrl)
-    
-    // Simulate loading and fallback to image for demo
-    setTimeout(() => {
-      console.log('AVALIN: Simulating load failure, showing fallback image')
-      hasError.value = true
-      isLoading.value = false
-    }, 2000)
-    
+
+    loadAvalinScript()
+      .then(() => {
+        initializeViewer()
+        isLoading.value = false
+      })
+      .catch((error) => {
+        console.error('AVALIN: Script load failed:', error)
+        hasError.value = true
+        isLoading.value = false
+        fallbackToImage()
+      })
   } catch (error) {
     console.error('AVALIN: Error loading viewer:', error)
     hasError.value = true
     isLoading.value = false
+    fallbackToImage()
   }
+}
+
+function loadAvalinScript(): Promise<void> {
+  if (window.AvalinViewer) return Promise.resolve()
+  if (avalinScriptPromise) return avalinScriptPromise
+
+  let url = avalinScriptUrl
+  if (!url.endsWith('.js')) {
+    url = `${url.replace(/\/$/, '')}/viewer.js`
+  }
+
+  avalinScriptPromise = new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${url}"]`) as HTMLScriptElement | null
+    if (existing && (existing as any)._loaded) {
+      resolve()
+      return
+    }
+
+    const script = existing || document.createElement('script')
+    script.src = url
+    script.async = true
+    script.onload = () => {
+      ;(script as any)._loaded = true
+      resolve()
+    }
+    script.onerror = (e) => reject(e)
+    if (!existing) document.head.appendChild(script)
+  })
+
+  return avalinScriptPromise
 }
 
 function initializeViewer() {
   if (!window.AvalinViewer || !viewerRef.value) {
-    console.error('AVALIN: Cannot initialize viewer', { 
-      hasAvalin: !!window.AvalinViewer, 
-      hasViewerRef: !!viewerRef.value 
+    console.error('AVALIN: Cannot initialize viewer', {
+      hasAvalin: !!window.AvalinViewer,
+      hasViewerRef: !!viewerRef.value
     })
     return
   }
@@ -88,7 +129,7 @@ function initializeViewer() {
       url: props.tourUrl,
       ...viewerConfig
     })
-    
+
     window.AvalinViewer.init(viewerRef.value, {
       url: props.tourUrl,
       ...viewerConfig
@@ -124,7 +165,7 @@ function fallbackToImage() {
   img.src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=600&fit=crop'
   img.alt = props.title
   img.className = 'w-full h-full object-cover rounded-lg'
-  
+
   if (viewerRef.value) {
     viewerRef.value.innerHTML = ''
     viewerRef.value.appendChild(img)
@@ -158,7 +199,7 @@ function fallbackToImage() {
         <p class="text-gray-600 mb-2">3D тур временно недоступен</p>
         <p class="text-sm text-gray-500 mb-4">Показываем фотографии места</p>
         <div class="w-full h-48 bg-gray-200 rounded-lg overflow-hidden">
-          <img 
+          <img
             src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=600&fit=crop"
             :alt="title"
             class="w-full h-full object-cover"

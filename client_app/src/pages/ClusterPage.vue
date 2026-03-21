@@ -145,13 +145,13 @@ function reviewStars(r: Review): string {
               @tour-ended="() => console.log('3D тур завершен')"
             />
           </div>
-          
+
           <!-- Regular Image -->
-          <img 
+          <img
             v-else
-            :src="selectedPlace.photo" 
-            class="clusterCard__img" 
-            :alt="selectedPlace.title" 
+            :src="selectedPlace.photo"
+            class="clusterCard__img"
+            :alt="selectedPlace.title"
           />
 
           <!-- 3D Tour Toggle Button -->
@@ -721,4 +721,3 @@ function reviewStars(r: Review): string {
   }
 }
 </style>
-

@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   db:
@@ -51,6 +51,23 @@ services:
       - cluster_network
     command: bash -c "sleep 5 && python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
 
+  seed:
+    build:
+      context: ./server_app/.
+      dockerfile: Dockerfile
+    container_name: cluster_seed
+    environment:
+      DATABASE_URL: postgresql://cluster_user:password@db:5432/clusterdb
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./server_app:/app
+    networks:
+      - cluster_network
+    command: python scripts/seed_demo_places.py
+    profiles: ["seed"]
+
   client:
     build:
       context: ./client_app
@@ -81,4 +98,3 @@ volumes:
 networks:
   cluster_network:
     driver: bridge
-

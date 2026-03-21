@@ -29,16 +29,17 @@ docker-compose exec server python scripts/init_special_offers.py
 # 5. Вычисление эмбеддингов для мест
 echo "🤖 Вычисление AI эмбеддингов..."
 docker-compose exec server python -c "
-import asyncio
 import httpx
-async def compute_embeddings():
-    async with httpx.Client() as client:
-        resp = await client.post('http://localhost:8000/api/v1/places/compute-embeddings')
+
+def compute_embeddings():
+    with httpx.Client() as client:
+        resp = client.post('http://localhost:8000/places/compute-embeddings')
         if resp.status_code == 200:
             print('✅ Эмбеддинги успешно вычислены')
         else:
             print(f'❌ Ошибка вычисления эмбеддингов: {resp.status_code}')
-asyncio.run(compute_embeddings())
+
+compute_embeddings()
 "
 
 echo ""

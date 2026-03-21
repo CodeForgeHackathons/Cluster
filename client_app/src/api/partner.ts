@@ -20,6 +20,7 @@ export type PartnerPlace = {
 export type PartnerPlaceDetail = {
   place_id: number;
   business_id: number;
+  cluster_id: string | null;
   name: string;
   place_type: string | null;
   location: string | null;
@@ -31,6 +32,7 @@ export type PartnerPlaceDetail = {
 
 export type PartnerPlaceCreate = {
   business_id: number;
+  cluster_id?: string | null;
   name: string;
   place_type?: string | null;
   location?: string | null;
@@ -41,6 +43,7 @@ export type PartnerPlaceCreate = {
 };
 
 export type PartnerPlaceUpdate = {
+  cluster_id?: string | null;
   name?: string | null;
   place_type?: string | null;
   location?: string | null;
@@ -55,6 +58,14 @@ export type PartnerProfile = {
   username: string;
   email: string;
   full_name: string | null;
+};
+
+export type PartnerCluster = {
+  id: string;
+  title: string;
+  meta: string | null;
+  description: string | null;
+  status: string;
 };
 
 export type TokenResponse = {
@@ -133,6 +144,11 @@ export async function getPartnerMe(): Promise<PartnerProfile> {
   return authFetch<PartnerProfile>("/partner/auth/me");
 }
 
+export async function fetchPartnerClusters(): Promise<PartnerCluster[]> {
+  const data = await authFetch<PartnerCluster[]>("/partner/clusters");
+  return data ?? [];
+}
+
 // --------------------------------------------------------------------------- //
 // Места                                                                        //
 // --------------------------------------------------------------------------- //
@@ -148,6 +164,7 @@ export async function fetchPartnerPlaceDetail(
   const data = await authFetch<{
     place_id: number;
     business_id: number;
+    cluster_id: string | null;
     name: string;
     place_type: string | null;
     location: string | null;
@@ -161,6 +178,7 @@ export async function fetchPartnerPlaceDetail(
   return {
     place_id: data.place_id,
     business_id: data.business_id,
+    cluster_id: data.cluster_id,
     name: data.name,
     place_type: data.place_type,
     location: data.location,
@@ -187,6 +205,7 @@ export async function updatePartnerPlace(
   const data = await authFetch<{
     place_id: number;
     business_id: number;
+    cluster_id: string | null;
     name: string;
     place_type: string | null;
     location: string | null;
@@ -203,6 +222,7 @@ export async function updatePartnerPlace(
   return {
     place_id: data.place_id,
     business_id: data.business_id,
+    cluster_id: data.cluster_id,
     name: data.name,
     place_type: data.place_type,
     location: data.location,

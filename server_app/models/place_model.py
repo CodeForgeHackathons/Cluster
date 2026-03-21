@@ -4,22 +4,21 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
+from database.session import Base
 from sqlalchemy import (
     ARRAY,
+    JSON,
     Column,
     DateTime,
     Float,
     ForeignKey,
     Integer,
-    JSON,
     Numeric,
     String,
     Text,
     func,
 )
 from sqlalchemy.orm import Mapped, relationship
-
-from database.session import Base
 
 
 class Place(Base):
@@ -29,6 +28,9 @@ class Place(Base):
     business_id: Mapped[int] = Column(
         Integer, ForeignKey("business_representatives.id"), nullable=False, index=True
     )
+    cluster_id: Mapped[Optional[str]] = Column(
+        String(64), ForeignKey("clusters.id"), nullable=True, index=True
+    )
 
     name: Mapped[str] = Column(String(255), nullable=False)
     # Тип места для фильтрации на фронтенде (например: "винодельня", "отель")
@@ -37,7 +39,7 @@ class Place(Base):
     interesting_fact: Mapped[Optional[str]] = Column(String(255), nullable=True)
 
     ai_link: Mapped[Optional[str]] = Column(String(2048), nullable=True)
-    
+
     # 3D тур через AVALIN для "вау"-эффекта
     avalin_tour_url: Mapped[Optional[str]] = Column(String(2048), nullable=True)
 
@@ -53,10 +55,19 @@ class Place(Base):
         nullable=True,
     )
 
-    created_at: Mapped[datetime] = Column(DateTime, server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at: Mapped[datetime] = Column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = Column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
 
     # Eager loaded в эндпоинтах: joinedload(Place.images) + selectinload(Place.reviews)
+    cluster: Mapped[Optional["Cluster"]] = relationship(
+        "Cluster",
+        back_populates="places",
+        lazy="selectin",
+    )
     business_rep: Mapped["BusinessRepresentative"] = relationship(
         "BusinessRepresentative",
         back_populates="places",
@@ -93,11 +104,15 @@ class PlaceImage(Base):
     __tablename__ = "place_images"
 
     place_image_id: Mapped[int] = Column(Integer, primary_key=True, index=True)
-    place_id: Mapped[int] = Column(Integer, ForeignKey("places.place_id"), nullable=False, index=True)
+    place_id: Mapped[int] = Column(
+        Integer, ForeignKey("places.place_id"), nullable=False, index=True
+    )
 
     image_url: Mapped[str] = Column(String(2048), nullable=False)
 
-    created_at: Mapped[datetime] = Column(DateTime, server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = Column(
+        DateTime, server_default=func.now(), nullable=False
+    )
 
     place: Mapped["Place"] = relationship("Place", back_populates="images")
 
@@ -106,7 +121,9 @@ class PlaceReview(Base):
     __tablename__ = "place_reviews"
 
     place_review_id: Mapped[int] = Column(Integer, primary_key=True, index=True)
-    place_id: Mapped[int] = Column(Integer, ForeignKey("places.place_id"), nullable=False, index=True)
+    place_id: Mapped[int] = Column(
+        Integer, ForeignKey("places.place_id"), nullable=False, index=True
+    )
     tourist_id: Mapped[int] = Column(
         Integer, ForeignKey("tourist_users.id"), nullable=False, index=True
     )
@@ -114,6 +131,8 @@ class PlaceReview(Base):
     rating: Mapped[int] = Column(Integer, nullable=False)
     comment: Mapped[Optional[str]] = Column(Text, nullable=True)
 
-    created_at: Mapped[datetime] = Column(DateTime, server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = Column(
+        DateTime, server_default=func.now(), nullable=False
+    )
 
     place: Mapped["Place"] = relationship("Place", back_populates="reviews")

@@ -2,15 +2,20 @@ from __future__ import annotations
 
 from typing import List, Optional
 
+from api.deps import get_current_partner, get_db
 from fastapi import APIRouter, Depends, HTTPException, Query
+from models import Cluster, Place, PlaceImage
+from models.business_rep_model import BusinessRepresentative
+from schemas import (
+    PlaceCreate,
+    PlaceDetailResponse,
+    PlaceResponse,
+    PlaceReviewResponse,
+    PlaceUpdate,
+)
+from services.text_sanitizer import sanitize_fields
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
-
-from api.deps import get_db, get_current_partner
-from models import Place, PlaceImage
-from models.business_rep_model import BusinessRepresentative
-from schemas import PlaceCreate, PlaceDetailResponse, PlaceResponse, PlaceReviewResponse, PlaceUpdate
-
 
 router = APIRouter(prefix="/places", tags=["places"])
 
@@ -42,11 +47,13 @@ def _place_to_detail(place: Place) -> PlaceDetailResponse:
     return PlaceDetailResponse(
         place_id=place.place_id,
         business_id=place.business_id,
+        cluster_id=place.cluster_id,
         name=place.name,
         place_type=place.place_type,
         location=place.location,
         interesting_fact=place.interesting_fact,
         ai_link=place.ai_link,
+        avalin_tour_url=place.avalin_tour_url,
         description_ai=place.description_ai,
         description=_final_description(place),
         price=place.price,
@@ -63,15 +70,43 @@ def create_place(
     db: Session = Depends(get_db),
     current_partner: BusinessRepresentative = Depends(get_current_partner),
 ) -> PlaceDetailResponse:
+    if not payload.cluster_id:
+        raise HTTPException(status_code=400, detail="cluster_id is required")
+
+    cluster = db.get(Cluster, payload.cluster_id)
+    if cluster is None or cluster.business_id != current_partner.id:
+        raise HTTPException(status_code=404, detail="Cluster not found")
+
+    results = sanitize_fields(
+        title=payload.name,
+        meta=payload.location,
+        description=payload.description or payload.description_ai,
+        interesting_fact=payload.interesting_fact,
+    )
+    name = results["title"].sanitized
+    location = results["meta"].sanitized if payload.location is not None else None
+    description = (
+        results["description"].sanitized if payload.description is not None else None
+    )
+    description_ai = (
+        results["description"].sanitized if payload.description_ai is not None else None
+    )
+    interesting_fact = (
+        results["interesting_fact"].sanitized
+        if payload.interesting_fact is not None
+        else None
+    )
+
     place = Place(
         business_id=current_partner.id,
-        name=payload.name,
-        place_type=payload.place_type,
-        location=payload.location,
-        interesting_fact=payload.interesting_fact,
+        cluster_id=payload.cluster_id,
+        name=name,
+        place_type=payload.place_type or payload.cluster_id,
+        location=location,
+        interesting_fact=interesting_fact,
         ai_link=str(payload.ai_link) if payload.ai_link is not None else None,
-        description_ai=payload.description_ai,
-        description=payload.description,
+        description_ai=description_ai,
+        description=description,
         price=payload.price,
     )
     db.add(place)
@@ -80,7 +115,10 @@ def create_place(
 
     if payload.images:
         db.add_all(
-            [PlaceImage(place_id=place.place_id, image_url=url) for url in payload.images]
+            [
+                PlaceImage(place_id=place.place_id, image_url=url)
+                for url in payload.images
+            ]
         )
         db.commit()
         db.refresh(place)
@@ -105,22 +143,40 @@ def update_place(
     if place is None:
         raise HTTPException(status_code=404, detail="Place not found")
 
+    if payload.cluster_id is not None:
+        cluster = db.get(Cluster, payload.cluster_id)
+        if cluster is None or cluster.business_id != current_partner.id:
+            raise HTTPException(status_code=404, detail="Cluster not found")
+        place.cluster_id = payload.cluster_id
+        place.place_type = payload.place_type or payload.cluster_id
+
+    results = sanitize_fields(
+        title=payload.name if payload.name is not None else place.name,
+        meta=payload.location if payload.location is not None else place.location,
+        description=payload.description
+        if payload.description is not None
+        else place.description,
+        interesting_fact=payload.interesting_fact
+        if payload.interesting_fact is not None
+        else place.interesting_fact,
+    )
+
     if payload.business_id is not None:
         place.business_id = payload.business_id
     if payload.name is not None:
-        place.name = payload.name
-    if payload.place_type is not None:
+        place.name = results["title"].sanitized
+    if payload.place_type is not None and payload.cluster_id is None:
         place.place_type = payload.place_type
     if payload.location is not None:
-        place.location = payload.location
+        place.location = results["meta"].sanitized
     if payload.interesting_fact is not None:
-        place.interesting_fact = payload.interesting_fact
+        place.interesting_fact = results["interesting_fact"].sanitized
     if payload.ai_link is not None:
         place.ai_link = str(payload.ai_link)
     if payload.description_ai is not None:
         place.description_ai = payload.description_ai
     if payload.description is not None:
-        place.description = payload.description
+        place.description = results["description"].sanitized
     if payload.price is not None:
         place.price = payload.price
 
@@ -128,7 +184,9 @@ def update_place(
     if payload.images is not None:
         place.images = []
         if payload.images:
-            place.images = [PlaceImage(place_id=place_id, image_url=url) for url in payload.images]
+            place.images = [
+                PlaceImage(place_id=place_id, image_url=url) for url in payload.images
+            ]
 
     db.add(place)
     db.commit()
@@ -138,8 +196,12 @@ def update_place(
 
 @router.get("", response_model=List[PlaceResponse])
 def list_places(
-    q: Optional[str] = Query(default=None, description="Поиск по названию/локации/факту"),
-    place_type: Optional[str] = Query(default=None, alias="type", description="Фильтр по типу места"),
+    q: Optional[str] = Query(
+        default=None, description="Поиск по названию/локации/факту"
+    ),
+    place_type: Optional[str] = Query(
+        default=None, alias="type", description="Фильтр по типу места"
+    ),
     db: Session = Depends(get_db),
 ) -> List[PlaceResponse]:
     stmt = (
@@ -174,6 +236,7 @@ def list_places(
             location=p.location,
             interesting_fact=p.interesting_fact,
             ai_link=p.ai_link,
+            avalin_tour_url=p.avalin_tour_url,
             description_ai=p.description_ai,
             description=_final_description(p),
             price=p.price,
@@ -230,12 +293,16 @@ def delete_place(
     current_partner: BusinessRepresentative = Depends(get_current_partner),
 ) -> dict:
     """Удалить место (вместе с изображениями, отзывами и спецпредложениями)."""
-    place = db.execute(
-        select(Place).where(
-            Place.place_id == place_id,
-            Place.business_id == current_partner.id,
+    place = (
+        db.execute(
+            select(Place).where(
+                Place.place_id == place_id,
+                Place.business_id == current_partner.id,
+            )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
     if place is None:
         raise HTTPException(status_code=404, detail="Place not found")
     db.delete(place)
