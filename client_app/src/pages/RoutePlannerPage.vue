@@ -4,6 +4,7 @@ import { getApiBase } from '../api/client'
 import type { Place } from '../types/cluster'
 import RouteMap from '../components/RouteMap.vue'
 import type { MapPoint } from '../components/RouteMap.vue'
+import AvalinViewer from '../components/AvalinViewer.vue'
 
 type TravelerType = 'family' | 'elderly' | 'digital' | 'gastro' | 'active' | 'eco'
 
@@ -84,6 +85,24 @@ const weatherByDay = ref<WeatherDay[]>([])
 const weatherError = ref<string>('')
 const apiError = ref<string>('')
 const generateLoading = ref(false)
+
+// 3D Tour state for route
+const show3DTour = ref(false)
+const currentTourPlace = ref<Place | null>(null)
+
+function start3DTour(place: Place): void {
+  currentTourPlace.value = place
+  show3DTour.value = true
+}
+
+function close3DTour(): void {
+  show3DTour.value = false
+  currentTourPlace.value = null
+}
+
+function has3DTour(place: Place): boolean {
+  return !!(place as any).avalinTourUrl
+}
 
 function weatherLabelFromCode(code: number): { label: string; isRainy: boolean } {
   // Open-Meteo weather codes:
@@ -975,7 +994,21 @@ onBeforeUnmount(() => {
                 :class="{ 'plannerPlace--active': activeMapPointId === item.place.id }"
                 @click="onMapSelectPoint(item.place.id)"
               >
-                <img :src="item.place.photo" :alt="item.place.title" class="plannerPlace__img" />
+                <div class="plannerPlace__media">
+                  <img :src="item.place.photo" :alt="item.place.title" class="plannerPlace__img" />
+                  
+                  <!-- 3D Tour Button -->
+                  <button
+                    v-if="has3DTour(item.place)"
+                    type="button"
+                    class="plannerPlace__3dBtn"
+                    @click.stop="start3DTour(item.place)"
+                  >
+                    <span class="plannerPlace__3dBtnIcon">🎯</span>
+                    <span>3D тур</span>
+                  </button>
+                </div>
+                
                 <div class="plannerPlace__body">
                   <div class="plannerPlace__row">
                     <div class="plannerPlace__title">{{ item.slot }} • {{ item.place.title }}</div>
@@ -1103,6 +1136,25 @@ onBeforeUnmount(() => {
         <div class="tripPreview__footer">
           <button type="button" class="tripPreview__ctrlBtn" @click="prevPreviewStep">◀ Назад</button>
           <button type="button" class="tripPreview__ctrlBtn" @click="nextPreviewStep">Дальше ▶</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3D Tour Modal -->
+    <div v-if="show3DTour && currentTourPlace" class="tourModal" @click="close3DTour">
+      <div class="tourModal__content" @click.stop>
+        <div class="tourModal__header">
+          <h3 class="tourModal__title">{{ currentTourPlace.title }}</h3>
+          <button type="button" class="tourModal__close" @click="close3DTour">×</button>
+        </div>
+        <div class="tourModal__body">
+          <AvalinViewer
+            :tour-url="(currentTourPlace as any).avalinTourUrl"
+            :title="currentTourPlace.title"
+            height="500px"
+            @tour-started="() => console.log('3D тур маршрута начат')"
+            @tour-ended="() => console.log('3D тур маршрута завершен')"
+          />
         </div>
       </div>
     </div>
@@ -1797,6 +1849,116 @@ onBeforeUnmount(() => {
   text-decoration: underline;
   opacity: 0.9;
   font-size: 13px;
+}
+
+/* 3D Tour Styles */
+.plannerPlace__media {
+  position: relative;
+  width: 100%;
+  height: 120px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.plannerPlace__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.plannerPlace__3dBtn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 6px 12px;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.3s ease;
+}
+
+.plannerPlace__3dBtn:hover {
+  background: rgba(0, 0, 0, 0.8);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.plannerPlace__3dBtnIcon {
+  font-size: 12px;
+}
+
+.tourModal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.tourModal__content {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 20px;
+  max-width: 900px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: 0 25px 100px rgba(0, 0, 0, 0.5);
+}
+
+.tourModal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.tourModal__title {
+  color: white;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.tourModal__close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  color: white;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.tourModal__close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.tourModal__body {
+  padding: 24px;
 }
 
 @media (max-width: 980px) {

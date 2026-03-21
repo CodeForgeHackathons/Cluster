@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { Cluster, Place, Review } from '../types/cluster'
+import AvalinViewer from '../components/AvalinViewer.vue'
 
 const props = defineProps<{
   cluster: Cluster
@@ -14,6 +15,7 @@ const emit = defineEmits<{
 
 const query = ref('')
 const selectedPlaceId = ref('')
+const show3DTour = ref(false)
 
 const filteredPlaces = computed<Place[]>(() => {
   const q = query.value.trim().toLowerCase()
@@ -52,6 +54,14 @@ watch(
 
 function toggleRoute(): void {
   emit('toggleRoutePlace', selectedPlace.value)
+}
+
+function toggle3DTour(): void {
+  show3DTour.value = !show3DTour.value
+}
+
+function has3DTour(place: Place): boolean {
+  return !!(place as any).avalinTourUrl
 }
 
 function reviewStars(r: Review): string {
@@ -125,7 +135,35 @@ function reviewStars(r: Review): string {
 
       <article class="clusterCard">
         <div class="clusterCard__media">
-          <img :src="selectedPlace.photo" class="clusterCard__img" :alt="selectedPlace.title" />
+          <!-- 3D Tour Viewer -->
+          <div v-if="show3DTour && has3DTour(selectedPlace)" class="clusterCard__3dTour">
+            <AvalinViewer
+              :tour-url="(selectedPlace as any).avalinTourUrl"
+              :title="selectedPlace.title"
+              height="300px"
+              @tour-started="() => console.log('3D тур начат')"
+              @tour-ended="() => console.log('3D тур завершен')"
+            />
+          </div>
+          
+          <!-- Regular Image -->
+          <img 
+            v-else
+            :src="selectedPlace.photo" 
+            class="clusterCard__img" 
+            :alt="selectedPlace.title" 
+          />
+
+          <!-- 3D Tour Toggle Button -->
+          <button
+            v-if="has3DTour(selectedPlace)"
+            type="button"
+            class="clusterCard__3dToggle"
+            @click="toggle3DTour"
+          >
+            <span class="clusterCard__3dToggleIcon">🎯</span>
+            <span>{{ show3DTour ? 'Фотографии' : '3D тур' }}</span>
+          </button>
 
           <div class="clusterCard__rating">
             <span class="clusterCard__ratingStars" aria-hidden="true">★</span>
@@ -610,6 +648,44 @@ function reviewStars(r: Review): string {
   opacity: 0.86;
   font-size: 12px;
   text-align: right;
+}
+
+.clusterCard__3dTour {
+  width: 100%;
+  height: 300px;
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+}
+
+.clusterCard__3dToggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 8px 16px;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+  z-index: 10;
+}
+
+.clusterCard__3dToggle:hover {
+  background: rgba(0, 0, 0, 0.8);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.clusterCard__3dToggleIcon {
+  font-size: 14px;
 }
 
 @keyframes cardIn {

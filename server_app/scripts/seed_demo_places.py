@@ -52,6 +52,40 @@ CLUSTER_IMAGES: dict[str, list[str]] = {
     ],
 }
 
+# Демо 3D туры AVALIN для "вау"-эффекта
+DEMO_AVALIN_TOURS: dict[str, list[str]] = {
+    "cl1": [
+        "https://demo.avalin.ru/tours/sea-hotel-360",
+        "https://demo.avalin.ru/tours/beach-walk-360", 
+        "https://demo.avalin.ru/tours/sunset-view-360",
+    ],
+    "cl2": [
+        "https://demo.avalin.ru/tours/nature-house-360",
+        "https://demo.avalin.ru/tours/lake-walk-360",
+        "https://demo.avalin.ru/tours/forest-path-360",
+    ],
+    "cl3": [
+        "https://demo.avalin.ru/tours/coworking-view-360",
+        "https://demo.avalin.ru/tours/terrace-work-360",
+        "https://demo.avalin.ru/tours/coffee-office-360",
+    ],
+    "cl4": [
+        "https://demo.avalin.ru/tours/winery-tour-360",
+        "https://demo.avalin.ru/tours/tasting-room-360",
+        "https://demo.avalin.ru/tours/vineyard-walk-360",
+    ],
+    "cl5": [
+        "https://demo.avalin.ru/tours/family-park-360",
+        "https://demo.avalin.ru/tours/kids-playground-360",
+        "https://demo.avalin.ru/tours/family-cafe-360",
+    ],
+    "cl6": [
+        "https://demo.avalin.ru/tours/craft-workshop-360",
+        "https://demo.avalin.ru/tours/traditional-house-360",
+        "https://demo.avalin.ru/tours/handmade-store-360",
+    ],
+}
+
 STUB_CLUSTERS = [
     {
         "cluster_id": "cl1",
@@ -170,6 +204,10 @@ def main() -> None:
                 continue
 
             for i in range(3):
+                # Получаем AVALIN тур для этого места
+                avalin_tours = DEMO_AVALIN_TOURS.get(cluster_id, [])
+                avalin_url = avalin_tours[i] if i < len(avalin_tours) else None
+                
                 place = Place(
                     business_id=biz.id,
                     name=title if i == 0 else f"{title} · вариант {i + 1}",
@@ -179,6 +217,7 @@ def main() -> None:
                     description=descs[i] if i < len(descs) else "",
                     description_ai=descs[i] if i < len(descs) else "",
                     price=price * (Decimal("0.92") if i == 1 else Decimal("1.04") if i == 2 else Decimal("1.00")),
+                    avalin_tour_url=avalin_url,
                 )
                 db.add(place)
                 db.flush()  # чтобы place_id появился

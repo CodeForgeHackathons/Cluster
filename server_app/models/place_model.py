@@ -36,6 +36,9 @@ class Place(Base):
     interesting_fact: Mapped[Optional[str]] = Column(String(255), nullable=True)
 
     ai_link: Mapped[Optional[str]] = Column(String(2048), nullable=True)
+    
+    # 3D тур через AVALIN для "вау"-эффекта
+    avalin_tour_url: Mapped[Optional[str]] = Column(String(2048), nullable=True)
 
     description_ai: Mapped[Optional[str]] = Column(Text, nullable=True)
     # Модератор при необходимости переписывает поверх AI-описания

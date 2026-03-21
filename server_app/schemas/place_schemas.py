@@ -15,6 +15,7 @@ class PlaceBase(BaseModel):
     location: Optional[str] = Field(None, max_length=255)
     interesting_fact: Optional[str] = Field(None, max_length=255)
     ai_link: Optional[AnyUrl] = None
+    avalin_tour_url: Optional[AnyUrl] = None
 
     description_ai: Optional[str] = None
     description: Optional[str] = None
@@ -40,6 +41,7 @@ class PlaceUpdate(BaseModel):
     location: Optional[str] = Field(default=None, max_length=255)
     interesting_fact: Optional[str] = Field(default=None, max_length=255)
     ai_link: Optional[AnyUrl] = None
+    avalin_tour_url: Optional[AnyUrl] = None
 
     description_ai: Optional[str] = None
     description: Optional[str] = None
