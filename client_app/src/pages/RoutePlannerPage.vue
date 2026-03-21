@@ -996,7 +996,7 @@ onBeforeUnmount(() => {
               >
                 <div class="plannerPlace__media">
                   <img :src="item.place.photo" :alt="item.place.title" class="plannerPlace__img" />
-                  
+
                   <!-- 3D Tour Button -->
                   <button
                     v-if="has3DTour(item.place)"
@@ -1008,7 +1008,7 @@ onBeforeUnmount(() => {
                     <span>3D тур</span>
                   </button>
                 </div>
-                
+
                 <div class="plannerPlace__body">
                   <div class="plannerPlace__row">
                     <div class="plannerPlace__title">{{ item.slot }} • {{ item.place.title }}</div>
@@ -1415,6 +1415,8 @@ onBeforeUnmount(() => {
 
 .plannerPlace {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
   gap: 12px;
   padding: 10px;
   border-radius: 18px;
@@ -1450,9 +1452,10 @@ onBeforeUnmount(() => {
 
 .plannerPlace__row {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 6px;
 }
 
 .plannerPlace__title {
@@ -1468,6 +1471,7 @@ onBeforeUnmount(() => {
 .plannerPlace__cost {
   font-weight: 1000;
   white-space: nowrap;
+  align-self: flex-start;
 }
 
 .plannerPlace__loc {
@@ -1749,10 +1753,12 @@ onBeforeUnmount(() => {
 }
 
 .plannerDay__logLine {
-  display: flex;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: minmax(86px, 120px) minmax(0, 1fr);
+  column-gap: 10px;
+  row-gap: 6px;
   margin-bottom: 6px;
-  align-items: baseline;
+  align-items: start;
   line-height: 1.3;
 }
 
@@ -1764,6 +1770,9 @@ onBeforeUnmount(() => {
 
 .plannerDay__logVal {
   opacity: 0.92;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
 }
 
 .plannerDay__offer {
@@ -1855,7 +1864,7 @@ onBeforeUnmount(() => {
 .plannerPlace__media {
   position: relative;
   width: 100%;
-  height: 120px;
+  height: 160px;
   border-radius: 12px;
   overflow: hidden;
 }
@@ -1961,6 +1970,12 @@ onBeforeUnmount(() => {
   padding: 24px;
 }
 
+@media (max-width: 1280px) {
+  .plannerTimeline {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 980px) {
   .planner__controls {
     grid-template-columns: 1fr;
@@ -1977,6 +1992,16 @@ onBeforeUnmount(() => {
 
   .plannerTimeline {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .plannerDay__logLine {
+    grid-template-columns: 1fr;
+  }
+
+  .plannerDay__logKey {
+    white-space: normal;
   }
 }
 </style>
