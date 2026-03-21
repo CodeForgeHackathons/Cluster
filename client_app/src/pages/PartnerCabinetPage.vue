@@ -292,7 +292,8 @@ async function createPlace(): Promise<void> {
 
   creating.value = true
   createError.value = ''
-  const payload = {
+  const payload: PartnerPlaceCreate = {
+    business_id: currentPartner.value?.id ?? 0,
     cluster_id: formClusterId.value.trim() || null,
     name: formName.value.trim(),
     place_type: formType.value.trim() || null,

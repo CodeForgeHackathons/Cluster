@@ -190,11 +190,13 @@ export async function fetchPartnerPlaceDetail(
 }
 
 export async function createPartnerPlace(
-  payload: Omit<PartnerPlaceCreate, "business_id">,
+  payload: PartnerPlaceCreate,
 ): Promise<void> {
+  // Убираем business_id из payload - он должен добавляться на бэкенде
+  const { business_id, ...payloadWithoutBusinessId } = payload;
   await authFetch("/places", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify(payloadWithoutBusinessId),
   });
 }
 

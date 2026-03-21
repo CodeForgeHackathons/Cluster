@@ -61,7 +61,7 @@ function toggle3DTour(): void {
 }
 
 function has3DTour(place: Place): boolean {
-  return !!(place as any).avalinTourUrl
+  return !!place.avalinTourUrl
 }
 
 function reviewStars(r: Review): string {
@@ -138,7 +138,7 @@ function reviewStars(r: Review): string {
           <!-- 3D Tour Viewer -->
           <div v-if="show3DTour && has3DTour(selectedPlace)" class="clusterCard__3dTour">
             <AvalinViewer
-              :tour-url="(selectedPlace as any).avalinTourUrl"
+              :tour-url="selectedPlace.avalinTourUrl"
               :title="selectedPlace.title"
               height="300px"
               @tour-started="() => console.log('3D тур начат')"

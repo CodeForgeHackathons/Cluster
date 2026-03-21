@@ -137,7 +137,7 @@ function close3DTour(): void {
 }
 
 function has3DTour(place: Place): boolean {
-  return !!(place as any).avalinTourUrl
+  return !!place.avalinTourUrl
 }
 
 function openClusterByPlaceId(placeId: string): void {
@@ -1192,7 +1192,7 @@ onBeforeUnmount(() => {
         </div>
         <div class="tourModal__body">
           <AvalinViewer
-            :tour-url="(currentTourPlace as any).avalinTourUrl"
+            :tour-url="currentTourPlace.avalinTourUrl"
             :title="currentTourPlace.title"
             height="500px"
             @tour-started="() => console.log('3D тур маршрута начат')"
