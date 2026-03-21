@@ -11,6 +11,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    JSON,
     Numeric,
     String,
     Text,
@@ -47,7 +48,10 @@ class Place(Base):
     price: Mapped[Optional[Decimal]] = Column(Numeric(10, 2), nullable=True)
 
     # Эмбеддинг для семантического поиска (DeepSeek, 1536 dims)
-    embedding: Mapped[Optional[list]] = Column(ARRAY(Float), nullable=True)
+    embedding: Mapped[Optional[list]] = Column(
+        ARRAY(Float).with_variant(JSON, "sqlite"),
+        nullable=True,
+    )
 
     created_at: Mapped[datetime] = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = Column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -66,6 +70,12 @@ class Place(Base):
     )
     reviews: Mapped[List["PlaceReview"]] = relationship(
         "PlaceReview",
+        back_populates="place",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    special_offers: Mapped[List["SpecialOffer"]] = relationship(
+        "SpecialOffer",
         back_populates="place",
         cascade="all, delete-orphan",
         lazy="selectin",

@@ -27,6 +27,12 @@ from .place_schemas import (
     PlaceDetailResponse,
     PlaceReviewResponse,
 )
+from .special_offer_schemas import (
+    SpecialOfferCreate,
+    SpecialOfferUpdate,
+    SpecialOfferResponse,
+    SpecialOfferWithPlace,
+)
 
 __all__ = [
     "TouristUserBase",
@@ -50,4 +56,8 @@ __all__ = [
     "PlaceResponse",
     "PlaceDetailResponse",
     "PlaceReviewResponse",
+    "SpecialOfferCreate",
+    "SpecialOfferUpdate",
+    "SpecialOfferResponse",
+    "SpecialOfferWithPlace",
 ]
