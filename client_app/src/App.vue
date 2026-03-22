@@ -100,41 +100,76 @@ function togglePlaceInRoute(place: Place): void {
 </script>
 
 <template>
-  <LandingPage
-    v-if="mode === 'landing'"
-    @openCluster="openCluster"
-    @openPlanner="openPlanner"
-    @openPartner="openPartner"
-  />
+  <Transition name="page" mode="out-in">
+    <LandingPage
+      v-if="mode === 'landing'"
+      key="landing"
+      @openCluster="openCluster"
+      @openPlanner="openPlanner"
+      @openPartner="openPartner"
+    />
 
-  <ClusterPage
-    v-if="mode === 'cluster' && selectedCluster"
-    :cluster="selectedCluster"
-    :route-place-ids="routePlaceIds"
-    @back="backToLanding"
-    @toggleRoutePlace="togglePlaceInRoute"
-  />
+    <ClusterPage
+      v-else-if="mode === 'cluster' && selectedCluster"
+      key="cluster"
+      :cluster="selectedCluster"
+      :route-place-ids="routePlaceIds"
+      @back="backToLanding"
+      @toggleRoutePlace="togglePlaceInRoute"
+    />
+
+    <RoutePlannerPage
+      v-else-if="mode === 'plan'"
+      key="plan"
+      :route-places="routePlaces"
+      @back="backFromPlanner"
+      @openClusterByPlaceId="openClusterByPlaceId"
+    />
+
+    <PartnerCabinetPage 
+      v-else-if="mode === 'partner'" 
+      key="partner"
+      @back="backFromPartner" 
+    />
+  </Transition>
 
   <!-- Route FAB -->
-  <button
-    v-if="mode !== 'plan' && mode !== 'partner'"
-    type="button"
-    class="route-fab"
-    :aria-label="routePlaces.length > 0 ? `Открыть маршрут. В нём ${routePlaces.length} мест` : 'Подобрать маршрут'"
-    @click="routePlaces.length > 0 ? (isRouteOpen = !isRouteOpen) : openPlanner()"
-  >
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
-    </svg>
-    <span>{{ routePlaces.length > 0 ? `Маршрут: ${routePlaces.length}` : 'Подобрать маршрут' }}</span>
-  </button>
+  <Transition name="fab">
+    <button
+      v-if="mode !== 'plan' && mode !== 'partner'"
+      type="button"
+      class="route-fab"
+      :class="{ 'route-fab--active': routePlaces.length > 0 }"
+      :aria-label="routePlaces.length > 0 ? `Открыть маршрут. В нём ${routePlaces.length} мест` : 'Подобрать маршрут'"
+      @click="routePlaces.length > 0 ? (isRouteOpen = !isRouteOpen) : openPlanner()"
+    >
+      <span class="route-fab__glow"></span>
+      <span class="route-fab__icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+        </svg>
+      </span>
+      <span class="route-fab__text">{{ routePlaces.length > 0 ? `Маршрут: ${routePlaces.length}` : 'Подобрать маршрут' }}</span>
+      <span v-if="routePlaces.length > 0" class="route-fab__badge">{{ routePlaces.length }}</span>
+    </button>
+  </Transition>
 
   <!-- Route Drawer -->
-  <transition name="drawer">
-    <div v-if="isRouteOpen" class="route-drawer-overlay" role="dialog" aria-modal="true">
-      <div class="route-drawer">
+  <Transition name="drawer">
+    <div v-if="isRouteOpen" class="route-drawer-overlay" role="dialog" aria-modal="true" @click="isRouteOpen = false">
+      <div class="route-drawer" @click.stop>
         <div class="route-drawer__header">
-          <h2 class="route-drawer__title">Ваш маршрут</h2>
+          <div class="route-drawer__header-content">
+            <div class="route-drawer__icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="route-drawer__title">Ваш маршрут</h2>
+              <p class="route-drawer__count">{{ routePlaces.length }} {{ routePlaces.length === 1 ? 'место' : 'мест' }}</p>
+            </div>
+          </div>
           <button type="button" class="route-drawer__close" @click="isRouteOpen = false">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 6L6 18M6 6l12 12"/>
@@ -143,80 +178,154 @@ function togglePlaceInRoute(place: Place): void {
         </div>
 
         <div class="route-drawer__list" role="list">
-          <div
-            v-for="p in routePlaces"
-            :key="p.id"
-            class="route-item"
-            role="listitem"
-          >
-            <img :src="p.photo" class="route-item__img" :alt="p.title" />
-            <div class="route-item__body">
-              <div class="route-item__top">
-                <span class="route-item__title">{{ p.title }}</span>
-                <span class="route-item__cost">{{ p.cost.toLocaleString('ru-RU') }} ₽</span>
+          <TransitionGroup name="list">
+            <div
+              v-for="(p, index) in routePlaces"
+              :key="p.id"
+              class="route-item"
+              role="listitem"
+              :style="{ animationDelay: `${index * 0.05}s` }"
+            >
+              <div class="route-item__number">{{ index + 1 }}</div>
+              <img :src="p.photo" class="route-item__img" :alt="p.title" />
+              <div class="route-item__body">
+                <div class="route-item__top">
+                  <span class="route-item__title">{{ p.title }}</span>
+                  <span class="route-item__cost">{{ p.cost.toLocaleString('ru-RU') }} ₽</span>
+                </div>
+                <span class="route-item__loc">{{ p.location }}</span>
               </div>
-              <span class="route-item__loc">{{ p.location }}</span>
               <button
                 type="button"
                 class="route-item__remove"
                 @click="togglePlaceInRoute(p)"
+                title="Убрать из маршрута"
               >
-                Убрать
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
               </button>
             </div>
+          </TransitionGroup>
+          
+          <div v-if="routePlaces.length === 0" class="route-drawer__empty">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+            </svg>
+            <p>Добавьте места в маршрут</p>
           </div>
         </div>
 
         <div class="route-drawer__footer">
-          <p class="route-drawer__hint">Выберите места и соберите маршрут.</p>
+          <div class="route-drawer__total">
+            <span class="route-drawer__total-label">Итого:</span>
+            <span class="route-drawer__total-value">{{ routePlaces.reduce((sum, p) => sum + p.cost, 0).toLocaleString('ru-RU') }} ₽</span>
+          </div>
           <button
             type="button"
             class="route-drawer__plan"
+            :disabled="routePlaces.length === 0"
             @click="openPlanner"
           >
-            Собрать маршрут
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+              <path d="M2 17l10 5 10-5"/>
+              <path d="M2 12l10 5 10-5"/>
+            </svg>
+            Собрать маршрут с ИИ
           </button>
         </div>
       </div>
     </div>
-  </transition>
-
-  <RoutePlannerPage
-    v-if="mode === 'plan'"
-    :route-places="routePlaces"
-    @back="backFromPlanner"
-    @openClusterByPlaceId="openClusterByPlaceId"
-  />
-
-  <PartnerCabinetPage v-if="mode === 'partner'" @back="backFromPartner" />
+  </Transition>
 </template>
 
 <style scoped>
+/* Page Transitions */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+/* FAB Transitions */
+.fab-enter-active,
+.fab-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fab-enter-from,
+.fab-leave-to {
+  opacity: 0;
+  transform: translateY(20px) scale(0.9);
+}
+
 /* Route FAB */
 .route-fab {
   position: fixed;
-  right: var(--space-4);
-  bottom: var(--space-4);
+  right: var(--space-5);
+  bottom: var(--space-5);
   z-index: 50;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-5);
   font-size: 14px;
   font-weight: 600;
   color: #000;
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
   border: none;
   border-radius: var(--radius-full);
   cursor: pointer;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 8px 30px var(--accent-muted);
   transition: all var(--transition-fast);
+  overflow: hidden;
+}
+
+.route-fab__glow {
+  position: absolute;
+  inset: -3px;
+  background: linear-gradient(135deg, var(--accent-light), var(--accent));
+  border-radius: inherit;
+  opacity: 0;
+  filter: blur(12px);
+  transition: opacity var(--transition-base);
+  z-index: -1;
 }
 
 .route-fab:hover {
-  background: var(--accent-light);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-xl);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px var(--accent-glow);
+}
+
+.route-fab:hover .route-fab__glow {
+  opacity: 0.6;
+}
+
+.route-fab--active {
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+.route-fab__icon {
+  display: flex;
+}
+
+.route-fab__text {
+  position: relative;
+  z-index: 1;
+}
+
+.route-fab__badge {
+  display: none;
 }
 
 /* Route Drawer Overlay */
@@ -224,8 +333,8 @@ function togglePlaceInRoute(place: Place): void {
   position: fixed;
   inset: 0;
   z-index: 100;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -234,8 +343,8 @@ function togglePlaceInRoute(place: Place): void {
 /* Route Drawer */
 .route-drawer {
   width: 100%;
-  max-width: 600px;
-  max-height: 80vh;
+  max-width: 560px;
+  max-height: 85vh;
   background: var(--bg-secondary);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
@@ -248,8 +357,27 @@ function togglePlaceInRoute(place: Place): void {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-5) var(--space-6);
   border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-tertiary);
+}
+
+.route-drawer__header-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.route-drawer__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: var(--accent-muted);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-lg);
+  color: var(--accent-light);
 }
 
 .route-drawer__title {
@@ -258,14 +386,20 @@ function togglePlaceInRoute(place: Place): void {
   color: var(--text-primary);
 }
 
+.route-drawer__count {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
 .route-drawer__close {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   color: var(--text-secondary);
-  background: var(--bg-tertiary);
+  background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -274,7 +408,7 @@ function togglePlaceInRoute(place: Place): void {
 
 .route-drawer__close:hover {
   color: var(--text-primary);
-  background: var(--bg-elevated);
+  background: var(--bg-hover);
 }
 
 .route-drawer__list {
@@ -286,19 +420,56 @@ function togglePlaceInRoute(place: Place): void {
   gap: var(--space-3);
 }
 
+.route-drawer__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-12) var(--space-4);
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.route-drawer__empty svg {
+  opacity: 0.3;
+}
+
 /* Route Item */
 .route-item {
   display: flex;
+  align-items: center;
   gap: var(--space-3);
   padding: var(--space-3);
   background: var(--bg-tertiary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
+  transition: all var(--transition-fast);
+  animation: fadeInUp 0.3s ease-out backwards;
+}
+
+.route-item:hover {
+  border-color: var(--border-default);
+  background: var(--bg-elevated);
+}
+
+.route-item__number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #000;
+  background: var(--accent);
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .route-item__img {
-  width: 80px;
-  height: 60px;
+  width: 64px;
+  height: 48px;
   object-fit: cover;
   border-radius: var(--radius-md);
   flex-shrink: 0;
@@ -309,7 +480,7 @@ function togglePlaceInRoute(place: Place): void {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
 }
 
 .route-item__top {
@@ -341,17 +512,18 @@ function togglePlaceInRoute(place: Place): void {
 }
 
 .route-item__remove {
-  align-self: flex-start;
-  margin-top: var(--space-2);
-  padding: var(--space-1) var(--space-2);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-fast);
+  flex-shrink: 0;
 }
 
 .route-item__remove:hover {
@@ -362,45 +534,66 @@ function togglePlaceInRoute(place: Place): void {
 
 /* Route Drawer Footer */
 .route-drawer__footer {
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-5) var(--space-6);
   border-top: 1px solid var(--border-subtle);
+  background: var(--bg-tertiary);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
 }
 
-.route-drawer__hint {
-  font-size: 13px;
+.route-drawer__total {
+  display: flex;
+  flex-direction: column;
+}
+
+.route-drawer__total-label {
+  font-size: 12px;
   color: var(--text-tertiary);
 }
 
+.route-drawer__total-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
 .route-drawer__plan {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   padding: var(--space-3) var(--space-5);
   font-size: 14px;
   font-weight: 600;
   color: #000;
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   transition: all var(--transition-fast);
-  flex-shrink: 0;
+  box-shadow: 0 4px 20px var(--accent-muted);
 }
 
-.route-drawer__plan:hover {
-  background: var(--accent-light);
+.route-drawer__plan:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px var(--accent-glow);
 }
 
-/* Transitions */
+.route-drawer__plan:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Drawer Transitions */
 .drawer-enter-active,
 .drawer-leave-active {
-  transition: opacity 200ms ease;
+  transition: opacity 0.3s ease;
 }
 
 .drawer-enter-active .route-drawer,
 .drawer-leave-active .route-drawer {
-  transition: transform 200ms ease;
+  transition: transform 0.3s ease;
 }
 
 .drawer-enter-from,
@@ -413,14 +606,49 @@ function togglePlaceInRoute(place: Place): void {
   transform: translateY(100%);
 }
 
+/* List Transitions */
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.3s ease;
+}
+
+.list-enter-from {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+.list-leave-to {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.list-move {
+  transition: transform 0.3s ease;
+}
+
 /* Responsive */
 @media (max-width: 640px) {
+  .route-fab {
+    right: var(--space-4);
+    bottom: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+  }
+  
   .route-drawer__footer {
     flex-direction: column;
+    gap: var(--space-3);
+  }
+  
+  .route-drawer__total {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
   }
   
   .route-drawer__plan {
     width: 100%;
+    justify-content: center;
   }
 }
 </style>
