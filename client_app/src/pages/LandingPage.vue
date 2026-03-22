@@ -1545,4 +1545,3 @@ function resetToInitial(): void {
   }
 }
 </style>
-</template>
