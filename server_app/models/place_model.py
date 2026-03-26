@@ -32,6 +32,11 @@ class Place(Base):
         String(64), ForeignKey("clusters.id"), nullable=True, index=True
     )
 
+    # Геокоординаты места (для точной логистики и построения маршрутов).
+    # Если координаты не заданы, на фронте/в генераторе используются fallback-координаты кластера.
+    lat: Mapped[Optional[float]] = Column(Float, nullable=True, index=True)
+    lon: Mapped[Optional[float]] = Column(Float, nullable=True, index=True)
+
     name: Mapped[str] = Column(String(255), nullable=False)
     # Тип места для фильтрации на фронтенде (например: "винодельня", "отель")
     place_type: Mapped[Optional[str]] = Column(String(100), nullable=True, index=True)

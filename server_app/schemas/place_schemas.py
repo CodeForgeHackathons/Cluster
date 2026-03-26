@@ -23,6 +23,11 @@ class PlaceBase(BaseModel):
 
     price: Optional[Decimal] = None
 
+    # Для точной логистики/маршрутов.
+    # В MVP допускается null и используется fallback-география кластера.
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+
     @field_validator("interesting_fact", mode="before")
     @classmethod
     def validate_interesting_fact(cls, v):

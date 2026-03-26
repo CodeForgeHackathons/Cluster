@@ -58,6 +58,16 @@ CLUSTER_IMAGES: dict[str, list[str]] = {
     ],
 }
 
+# Координаты кластеров (используются как базовые точки для мест).
+CLUSTER_COORDS: dict[str, dict[str, float]] = {
+    "cl1": {"lat": 43.585, "lon": 39.723},
+    "cl2": {"lat": 45.041, "lon": 37.360},
+    "cl3": {"lat": 44.982, "lon": 38.917},
+    "cl4": {"lat": 44.958, "lon": 37.783},
+    "cl5": {"lat": 45.025, "lon": 37.170},
+    "cl6": {"lat": 44.476, "lon": 39.016},
+}
+
 # Демо 3D туры AVALIN для "вау"-эффекта
 DEMO_AVALIN_TOURS: dict[str, list[str]] = {
     "cl1": [
@@ -227,7 +237,7 @@ def main() -> None:
                 continue
 
             for i in range(3):
-# Получаем AVALIN тур для этого места
+                # Получаем AVALIN тур для этого места
                 avalin_tours = DEMO_AVALIN_TOURS.get(cluster_id, [])
                 avalin_url = avalin_tours[i] if i < len(avalin_tours) else None
                 place = Place(
@@ -236,10 +246,12 @@ def main() -> None:
                     name=title if i == 0 else f"{title} · вариант {i + 1}",
                     place_type=cluster_id,
                     location=meta,
+                    lat=CLUSTER_COORDS.get(cluster_id, {}).get("lat", 45.0),
+                    lon=CLUSTER_COORDS.get(cluster_id, {}).get("lon", 38.0),
                     interesting_fact=facts[i] if i < len(facts) else "",
                     description=descs[i] if i < len(descs) else "",
                     description_ai=descs[i] if i < len(descs) else "",
-price=price
+                    price=price
                     * (
                         Decimal("0.92")
                         if i == 1

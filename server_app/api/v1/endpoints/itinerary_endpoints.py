@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-from typing import List
+import re
+from datetime import date, timedelta
+from typing import Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from models import SpecialOffer
 
 from api.deps import get_db
 from schemas.itinerary_schemas import (
@@ -30,7 +34,16 @@ router = APIRouter(prefix="/itinerary", tags=["itinerary"])
 # Координаты по умолчанию для Краснодарского края (если у Place нет lat/lon)
 DEFAULT_COORDS = {"lat": 45.0, "lon": 38.0}
 
-SLOTS = ["Утро", "День", "Вечер"]
+CLUSTER_COORDS: dict[str, dict[str, float]] = {
+    "cl1": {"lat": 43.585, "lon": 39.723},  # побережье Сочи
+    "cl2": {"lat": 45.041, "lon": 37.360},  # природа/озёра
+    "cl3": {"lat": 44.982, "lon": 38.917},  # вид/работа
+    "cl4": {"lat": 44.958, "lon": 37.783},  # вино, Анапа
+    "cl5": {"lat": 45.025, "lon": 37.170},  # семейный
+    "cl6": {"lat": 44.476, "lon": 39.016},  # станица
+}
+
+DEFAULT_SLOTS = ["Утро", "День", "Вечер"]
 SEASON_LABELS = {"winter": "зимний", "spring": "весенний", "summer": "летний", "autumn": "осенний"}
 TRAVELER_LABELS = {
     "family": "Семья с детьми",
@@ -90,13 +103,22 @@ def _place_to_candidate(place) -> CandidateInput:
     indoor_opts = ["помещение", "дегустации", "мастерские"] if cluster_key in INDOOR_CLUSTERS else ["кафе рядом"]
     outdoor_opts = ["прогулки", "пляж", "набережная"] if is_outdoor else ["прогулки"]
 
+    coords = {
+        "lat": float(place.lat)
+        if getattr(place, "lat", None) is not None
+        else CLUSTER_COORDS.get(cluster_key, DEFAULT_COORDS)["lat"],
+        "lon": float(place.lon)
+        if getattr(place, "lon", None) is not None
+        else CLUSTER_COORDS.get(cluster_key, DEFAULT_COORDS)["lon"],
+    }
+
     return CandidateInput(
         # id нужен для восстановления clusterId: в генераторе мы делаем split по '-'
         id=f"{cluster_key}-p{place.place_id}",
         clusterId=cluster_key,
         title=place.name or "",
         location=place.location or "",
-        coordinates=CoordinatesInput(lat=DEFAULT_COORDS["lat"], lon=DEFAULT_COORDS["lon"]),
+        coordinates=CoordinatesInput(lat=coords["lat"], lon=coords["lon"]),
         rating=rating,
         cost=price,
         fact=place.interesting_fact or "",
@@ -120,6 +142,9 @@ def _month_to_season(m: int) -> str:
 
 
 def _cluster_key(candidate: CandidateInput) -> str:
+    # Предпочитаем явный clusterId из payload, так как формат id может отличаться.
+    if getattr(candidate, "clusterId", None):
+        return candidate.clusterId or ""
     return candidate.id.split("-")[0] if "-" in candidate.id else ""
 
 
@@ -197,7 +222,69 @@ def _score_candidate(
     return score
 
 
-def _why_for_place(c: CandidateInput, day_index: int, traveler_type: str, month: int) -> str:
+def _extract_place_id_from_candidate_id(candidate_id: str) -> Optional[int]:
+    """
+    Форматы id в проекте:
+    - cl1-p123
+    - p123 (старый/альтернативный путь)
+    """
+    if not candidate_id:
+        return None
+    m = re.search(r"-p(\d+)$", candidate_id)
+    if m:
+        return int(m.group(1))
+    m = re.match(r"^p(\d+)$", candidate_id)
+    if m:
+        return int(m.group(1))
+    return None
+
+
+def _parse_trip_dates(start_date_str: str, duration_days: int) -> Tuple[date, date]:
+    """
+    duration_days=1 => trip_end == start_date
+    duration_days=3 => trip_end == start_date + 2
+    """
+    try:
+        parts = start_date_str.split("-")
+        start = date(int(parts[0]), int(parts[1]), int(parts[2]))
+    except Exception:
+        start = date.today()
+    end = start + timedelta(days=max(1, duration_days) - 1)
+    return start, end
+
+
+def _offer_to_human_text(offer: SpecialOffer) -> str:
+    if offer.discount_percent is not None:
+        return f"спецпредложение -{round(float(offer.discount_percent))}%"
+    if offer.special_price is not None and offer.special_price > 0:
+        return f"спеццена {round(float(offer.special_price))} ₽"
+    return "спецпредложение"
+
+
+def _offer_bonus(c: CandidateInput, offer: Optional[SpecialOffer]) -> float:
+    if offer is None:
+        return 0.0
+
+    discount_percent: Optional[float] = None
+    if offer.discount_percent is not None:
+        discount_percent = float(offer.discount_percent)
+    elif offer.special_price is not None and c.cost and float(offer.special_price) > 0:
+        discount_percent = max(0.0, (c.cost - float(offer.special_price)) / c.cost * 100.0)
+
+    if discount_percent is None:
+        return 10.0
+
+    # Бонус ограничен, чтобы не "перебить" сезонность/погоду
+    return float(min(35.0, 10.0 + discount_percent * 0.6))
+
+
+def _why_for_place(
+    c: CandidateInput,
+    day_index: int,
+    traveler_type: str,
+    month: int,
+    offer: Optional[SpecialOffer] = None,
+) -> str:
     season = _month_to_season(month)
     key = _cluster_key(c)
     seed = day_index + len(c.title) + int(c.cost or 0)
@@ -226,6 +313,8 @@ def _why_for_place(c: CandidateInput, day_index: int, traveler_type: str, month:
         if first_sentence:
             desc_snippet = f" {first_sentence}."
 
+    offer_text = f" На ваших датах действует: {_offer_to_human_text(offer)}." if offer else ""
+
     intro = _pick_variant(
         [
             f"Выбранное место: «{c.title}».",
@@ -234,7 +323,7 @@ def _why_for_place(c: CandidateInput, day_index: int, traveler_type: str, month:
         ],
         seed,
     )
-    return f"{intro} {hint} — {audience}. {base}. {fact_text}{desc_snippet}".strip()
+    return f"{intro} {hint} — {audience}. {base}. {fact_text}{desc_snippet}{offer_text}".strip()
 
 
 def _logistics_notes(
@@ -243,6 +332,7 @@ def _logistics_notes(
     weather: WeatherDayInput | None,
     traveler_type: str,
     month: int,
+    offer: Optional[SpecialOffer] = None,
 ) -> str:
     seed = day_index + len(c.title) + int(c.cost or 0)
     parts: List[str] = []
@@ -280,6 +370,11 @@ def _logistics_notes(
         ]
         parts.append(_pick_variant(budget_variants, seed + 7))
 
+    if offer:
+        parts.append(
+            f"На ваши даты есть {_offer_to_human_text(offer)} — поэтому бюджет выглядит реалистичнее."
+        )
+
     if c.suitabilityFlags and c.suitabilityFlags.accessibilityNotes:
         parts.append(c.suitabilityFlags.accessibilityNotes)
     return " ".join(parts) if parts else "Обычная логистика."
@@ -309,6 +404,7 @@ def generate_itinerary(
             traveler_type=payload.travelerType or "family",
             start_date=payload.startDate,
             weather_labels=[w.weatherLabel for w in (payload.weatherByDay or []) if w.weatherLabel],
+            interests=payload.interests,
             limit=12
         )
         
@@ -321,8 +417,15 @@ def generate_itinerary(
             detail="Нет мест в БД. Запустите seed: docker exec cluster_api python scripts/seed_demo_places.py",
         )
 
-    duration = payload.durationDays or 3
+    output_contract = payload.outputContract
+    duration = payload.durationDays or (output_contract.daysCount if output_contract else 3) or 3
     traveler_type = payload.travelerType or "family"
+
+    day_slots = (output_contract.daySlots if output_contract and output_contract.daySlots else DEFAULT_SLOTS) or DEFAULT_SLOTS
+    max_places_per_day = int(output_contract.maxPlacesPerDay) if output_contract and output_contract.maxPlacesPerDay else 3
+    slot_count = max(1, min(len(day_slots), max_places_per_day))
+    day_slots = day_slots[:slot_count]
+    total_steps = duration * slot_count
 
     # Парсим месяц из startDate (YYYY-MM-DD)
     try:
@@ -335,9 +438,73 @@ def generate_itinerary(
 
     rainy_days = sum(1 for w in weather_by_day if w.isRainy)
 
+    # --- Спецпредложения на период поездки ---
+    trip_start, trip_end = _parse_trip_dates(payload.startDate, duration)
+
+    candidate_place_ids = [_extract_place_id_from_candidate_id(c.id) for c in candidates]
+    candidate_place_ids = [pid for pid in candidate_place_ids if pid is not None]
+    candidate_place_ids = list(set(candidate_place_ids))
+
+    offers_by_place_id: Dict[int, SpecialOffer] = {}
+    if candidate_place_ids:
+        offers = list(
+            db.execute(
+                select(SpecialOffer).where(
+                    SpecialOffer.place_id.in_(candidate_place_ids),
+                    SpecialOffer.start_date <= trip_end,
+                    SpecialOffer.end_date >= trip_start,
+                )
+            ).scalars().all()
+        )
+
+        for offer in offers:
+            pid = int(offer.place_id)
+            existing = offers_by_place_id.get(pid)
+            if existing is None:
+                offers_by_place_id[pid] = offer
+                continue
+
+            existing_discount = (
+                float(existing.discount_percent) if existing.discount_percent is not None else None
+            )
+            new_discount = (
+                float(offer.discount_percent) if offer.discount_percent is not None else None
+            )
+
+            if new_discount is not None and (existing_discount is None or new_discount > existing_discount):
+                offers_by_place_id[pid] = offer
+                continue
+
+            # Если дисконта нет — сравниваем спеццену (меньше = лучше)
+            if (
+                existing_discount is None
+                and new_discount is None
+                and existing.special_price is not None
+                and offer.special_price is not None
+                and float(offer.special_price) < float(existing.special_price)
+            ):
+                offers_by_place_id[pid] = offer
+
+    # Бонусы/стоимость для ранжирования и UI
+    offer_bonus_by_candidate_id: Dict[str, float] = {}
+    for cand in candidates:
+        pid = _extract_place_id_from_candidate_id(cand.id)
+        offer = offers_by_place_id.get(pid) if pid is not None else None
+
+        # Бонус считаем до подмены цены, иначе потеряем % дисконтирования.
+        offer_bonus_by_candidate_id[cand.id] = _offer_bonus(cand, offer)
+
+        if offer:
+            if offer.special_price is not None and float(offer.special_price) > 0:
+                cand.cost = float(offer.special_price)
+            elif offer.discount_percent is not None:
+                discount = float(offer.discount_percent)
+                cand.cost = max(0.0, cand.cost * (1.0 - discount / 100.0))
+
     sorted_candidates = sorted(
         candidates,
-        key=lambda c: _score_candidate(c, traveler_type, month, rainy_days),
+        key=lambda c: _score_candidate(c, traveler_type, month, rainy_days)
+        + offer_bonus_by_candidate_id.get(c.id, 0.0),
         reverse=True,
     )
 
@@ -346,14 +513,20 @@ def generate_itinerary(
         for i in range(duration)
     ]
 
-    for i, cand in enumerate(sorted_candidates):
-        day_index = i % duration
-        slot_idx = i % 3
-        slot = SLOTS[slot_idx]
+    for idx in range(min(len(sorted_candidates), total_steps)):
+        cand = sorted_candidates[idx]
+        day_index = idx // slot_count
+        slot_idx = idx % slot_count
+        slot = day_slots[slot_idx]
         weather = weather_by_day[day_index] if day_index < len(weather_by_day) else None
 
-        why = _why_for_place(cand, day_index, traveler_type, month)
-        logistics = _logistics_notes(cand, day_index, weather, traveler_type, month)
+        pid = _extract_place_id_from_candidate_id(cand.id)
+        offer = offers_by_place_id.get(pid) if pid is not None else None
+
+        why = _why_for_place(cand, day_index, traveler_type, month, offer=offer)
+        logistics = _logistics_notes(
+            cand, day_index, weather, traveler_type, month, offer=offer
+        )
 
         place_info = None
         if cand.id in db_place_by_id:
@@ -384,9 +557,14 @@ def generate_itinerary(
     season = _month_to_season(month)
     season_adj = SEASON_LABELS.get(season, season)
     traveler_label = TRAVELER_LABELS.get(traveler_type, traveler_type)
+    offers_mentioned = any(
+        _extract_place_id_from_candidate_id(c.id) in offers_by_place_id
+        for c in candidates
+    )
     overall_why = (
         f"ИИ-куратор: для {traveler_label} в {season_adj} период мы распределили места по дням "
         "так, чтобы сохранить темп, логичность и «вау»-атмосферу."
+        + (" Подобрали точки со спецпредложениями на ваши даты." if offers_mentioned else "")
     )
 
     return ItineraryGenerateResponse(

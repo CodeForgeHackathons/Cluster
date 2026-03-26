@@ -96,6 +96,9 @@ def list_clusters(db: Session = Depends(get_db)) -> List[ClusterResponse]:
             imgs = list(p.images) if p.images else []
             photo = imgs[0].image_url if imgs else ""
 
+            lat = float(p.lat) if getattr(p, "lat", None) is not None else coords["lat"]
+            lon = float(p.lon) if getattr(p, "lon", None) is not None else coords["lon"]
+
             place_items.append(
                 PlaceInCluster(
                     id=f"{cluster.id}-p{p.place_id}",
@@ -103,8 +106,8 @@ def list_clusters(db: Session = Depends(get_db)) -> List[ClusterResponse]:
                     rating=r,
                     title=p.name or "",
                     location=p.location or "",
-                    lat=coords["lat"],
-                    lon=coords["lon"],
+                    lat=lat,
+                    lon=lon,
                     fact=p.interesting_fact or "",
                     cost=float(p.price or 0),
                     description=(p.description or p.description_ai or "")[:500],

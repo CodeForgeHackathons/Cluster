@@ -38,12 +38,16 @@ if ($attempt -ge $maxAttempts) {
 }
 
 Write-Host ""
-Write-Host "[3/4] Waiting for API (table creation)..." -ForegroundColor Yellow
-Start-Sleep -Seconds 10
+Write-Host "[3/4] Applying DB migrations (Alembic)..." -ForegroundColor Yellow
+docker-compose exec server python -m alembic upgrade head
 
 Write-Host ""
-Write-Host "[4/4] Seeding demo data..." -ForegroundColor Yellow
+Write-Host "[4/5] Seeding demo data..." -ForegroundColor Yellow
 docker exec cluster_api bash -c "cd /app && PYTHONPATH=/app python scripts/seed_demo_places.py"
+
+Write-Host ""
+Write-Host "[5/5] Initializing special offers..." -ForegroundColor Yellow
+docker exec cluster_api bash -c "cd /app && PYTHONPATH=/app python scripts/init_special_offers.py"
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Seed failed. Check: docker logs cluster_api" -ForegroundColor Red

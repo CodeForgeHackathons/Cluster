@@ -60,6 +60,9 @@ class ItineraryGenerateRequest(BaseModel):
     travelerType: str = "family"
     startDate: str
     durationDays: int = 3
+    # Ключевые интересы пользователя (доп. сигнал для semantic/hybrid поиска).
+    # В MVP это текст, который прокидывается в LLM-подсказку и локальный TF-IDF fallback.
+    interests: Optional[str] = None
     weatherByDay: List[WeatherDayInput] = Field(default_factory=list)
     candidates: List[CandidateInput] = Field(default_factory=list)
     outputContract: Optional[OutputContractInput] = None
