@@ -102,7 +102,11 @@ def generate_smart_search_query(
     
     # Fallback если DeepSeek не доступен
     logger.warning("DeepSeek недоступен, используем базовый запрос")
-    return f"Места для {traveler_desc} в {month_name}, погода: {weather_desc}"
+    interests_hint = f". Интересы: {interests}" if interests else ""
+    return (
+        f"Места для {traveler_desc} в {month_name}, погода: {weather_desc}"
+        f"{interests_hint}"
+    )
 
 
 def rerank_places_with_deepseek(

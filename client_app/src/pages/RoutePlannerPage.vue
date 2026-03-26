@@ -72,6 +72,7 @@ const endDate = computed<string>(() => {
 const startDateLabel = computed(() => startDate.value)
 const endDateLabel = computed(() => endDate.value)
 const travelerType = ref<TravelerType>('family')
+const interests = ref<string>('')
 
 type DaySlot = 'Утро' | 'День' | 'Вечер'
 
@@ -382,6 +383,7 @@ async function generate(): Promise<void> {
     travelerType: travelerType.value,
     startDate: startDate.value,
     durationDays: 3,
+    interests: interests.value || undefined,
     weatherByDay: weatherByDay.value.map((w) => ({
       weatherCode: w.weatherCode,
       minTemp: w.minTemp,
@@ -688,6 +690,17 @@ onBeforeUnmount(() => {
             <option value="eco">Эко/природа</option>
           </select>
           <span class="control-hint">{{ travelerLabel(travelerType) }}</span>
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">Интересы</label>
+          <input
+            v-model="interests"
+            type="text"
+            class="control-input"
+            placeholder="Напр. дегустации, природа, театры"
+          />
+          <span class="control-hint">Ключевые слова для точнее подбора</span>
         </div>
 
         <div class="control-actions">

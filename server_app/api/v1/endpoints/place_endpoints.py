@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from api.deps import get_current_partner, get_db
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from models import Cluster, Place, PlaceImage
 from models.business_rep_model import BusinessRepresentative
 from schemas import (
@@ -14,6 +15,7 @@ from schemas import (
     PlaceUpdate,
 )
 from services.text_sanitizer import sanitize_fields
+from services.place_search_service import search_places_by_embedding
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
@@ -52,6 +54,8 @@ def _place_to_detail(place: Place) -> PlaceDetailResponse:
         place_type=place.place_type,
         location=place.location,
         interesting_fact=place.interesting_fact,
+        lat=place.lat,
+        lon=place.lon,
         ai_link=place.ai_link,
         avalin_tour_url=place.avalin_tour_url,
         description_ai=place.description_ai,
@@ -104,6 +108,8 @@ def create_place(
         place_type=payload.place_type or payload.cluster_id,
         location=location,
         interesting_fact=interesting_fact,
+        lat=payload.lat,
+        lon=payload.lon,
         ai_link=str(payload.ai_link) if payload.ai_link is not None else None,
         description_ai=description_ai,
         description=description,
@@ -180,6 +186,11 @@ def update_place(
     if payload.price is not None:
         place.price = payload.price
 
+    if payload.lat is not None:
+        place.lat = payload.lat
+    if payload.lon is not None:
+        place.lon = payload.lon
+
     # images: если images is not None -> заменяем полностью
     if payload.images is not None:
         place.images = []
@@ -235,6 +246,43 @@ def list_places(
             place_type=p.place_type,
             location=p.location,
             interesting_fact=p.interesting_fact,
+            lat=p.lat,
+            lon=p.lon,
+            ai_link=p.ai_link,
+            avalin_tour_url=p.avalin_tour_url,
+            description_ai=p.description_ai,
+            description=_final_description(p),
+            price=p.price,
+            created_at=p.created_at,
+            images=[img.image_url for img in (p.images or [])],
+            rating=_calc_rating(p),
+        )
+        for p in places
+    ]
+
+
+class PlaceSearchRequest(BaseModel):
+    query: str
+    limit: int = 12
+
+
+@router.post("/search", response_model=List[PlaceResponse])
+def search_places(payload: PlaceSearchRequest, db: Session = Depends(get_db)) -> List[PlaceResponse]:
+    query = (payload.query or "").strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="query is required")
+
+    places = search_places_by_embedding(db=db, query_text=query, limit=max(1, int(payload.limit)))
+    return [
+        PlaceResponse(
+            place_id=p.place_id,
+            business_id=p.business_id,
+            name=p.name,
+            place_type=p.place_type,
+            location=p.location,
+            interesting_fact=p.interesting_fact,
+            lat=p.lat,
+            lon=p.lon,
             ai_link=p.ai_link,
             avalin_tour_url=p.avalin_tour_url,
             description_ai=p.description_ai,
